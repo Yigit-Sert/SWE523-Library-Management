@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head_content}"></head>
+
+<body>
+<div th:replace="~{layout :: navbar}"></div>
+
+<div class="container mt-4">
+    <div th:replace="~{layout :: messages}"></div>
+
+    <h2 class="mb-4">Welcome to the Library Management System!</h2>
+    <p>This application allows you to manage library members, books, and borrowing records.</p>
+    <p>Use the navigation bar above to get started:</p>
+    <ul>
+        <li><a th:href="@{/members}">Manage Members</a></li>
+        <li><a th:href="@{/books}">Manage Books</a></li>
+        <li><a th:href="@{/borrowings}">Manage Borrowings</a></li>
+    </ul>
+</div>
+
+<div th:replace="~{layout :: footer}"></div>
+<div th:replace="~{layout :: scripts}"></div>
+</body>
+
+</html>
