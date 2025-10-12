@@ -1,7 +1,7 @@
 --- Project Context for AI Assistant ---
 
 Project Root: /home/yigit/Desktop/library-management
-Generated On: 1759495590.9153
+Generated On: 1760104032.6280634
 
 --- Project Structure ---
 ├── .gitattributes
@@ -10,6 +10,7 @@ Generated On: 1759495590.9153
 │   └── wrapper
 │       └── maven-wrapper.properties
 ├── HELP.md
+├── README.md
 ├── mvnw
 ├── mvnw.cmd
 ├── pom.xml
@@ -20,10 +21,17 @@ Generated On: 1759495590.9153
     │   │       └── library
     │   │           └── librarymanagement
     │   │               ├── LibraryManagementApplication.java
+    │   │               ├── config
+    │   │               │   └── ModelMapperConfig.java
     │   │               ├── controller
     │   │               │   ├── BookController.java
-    │   │               │   ├── BorrowerController.java
     │   │               │   └── MemberController.java
+    │   │               ├── dto
+    │   │               │   ├── BookDto.java
+    │   │               │   └── MemberDto.java
+    │   │               ├── exception
+    │   │               │   ├── GlobalExceptionHandler.java
+    │   │               │   └── ResourceNotFoundException.java
     │   │               ├── model
     │   │               │   ├── Book.java
     │   │               │   ├── Borrower.java
@@ -37,21 +45,7 @@ Generated On: 1759495590.9153
     │   │                   ├── BorrowerService.java
     │   │                   └── MemberService.java
     │   └── resources
-    │       ├── application.properties
-    │       ├── static
-    │       │   └── css
-    │       │       └── main.css
-    │       └── templates
-    │           ├── books
-    │           │   ├── edit.html
-    │           │   └── index.html
-    │           ├── borrowings
-    │           │   └── index.html
-    │           ├── index.html
-    │           ├── layout.html
-    │           └── members
-    │               ├── edit.html
-    │               └── index.html
+    │       └── application.properties
     └── test
         └── java
             └── com
@@ -96,12 +90,20 @@ Generated On: 1759495590.9153
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.modelmapper</groupId>
+            <artifactId>modelmapper</artifactId>
+            <version>3.1.1</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -185,20 +187,104 @@ package com.library.librarymanagement;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.stereotype.Controller; // Import Controller
-import org.springframework.web.bind.annotation.GetMapping; // Import GetMapping
+import org.springframework.cache.annotation.EnableCaching; // Eklendi
 
 @SpringBootApplication
-@Controller // Mark the main application class as a Controller for the root mapping
+@EnableCaching // Eklendi
 public class LibraryManagementApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(LibraryManagementApplication.class, args);
     }
 
-    @GetMapping("/")
-    public String home() {
-        return "index"; // This will resolve to src/main/resources/templates/index.html
+    // REST API olduğu için anasayfa map'lemesi kaldırıldı.
+}
+--- END FILE ---
+
+--- FILE: src/main/java/com/library/librarymanagement/exception/GlobalExceptionHandler.java ---
+package com.library.librarymanagement.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.WebRequest;
+
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+@ControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Object> handleResourceNotFoundException(
+            ResourceNotFoundException ex, WebRequest request) {
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("message", ex.getMessage());
+
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+}
+--- END FILE ---
+
+--- FILE: src/main/java/com/library/librarymanagement/exception/ResourceNotFoundException.java ---
+package com.library.librarymanagement.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(value = HttpStatus.NOT_FOUND)
+public class ResourceNotFoundException extends RuntimeException {
+    public ResourceNotFoundException(String message) {
+        super(message);
+    }
+}
+--- END FILE ---
+
+--- FILE: src/main/java/com/library/librarymanagement/dto/BookDto.java ---
+package com.library.librarymanagement.dto;
+
+import lombok.Data;
+import java.time.LocalDate;
+
+@Data
+public class BookDto {
+    private Long id;
+    private String title;
+    private String publisher;
+    private LocalDate publishDate;
+}
+--- END FILE ---
+
+--- FILE: src/main/java/com/library/librarymanagement/dto/MemberDto.java ---
+package com.library.librarymanagement.dto;
+
+import lombok.Data;
+
+@Data
+public class MemberDto {
+    private Long id;
+    private String name;
+    private String address;
+    private String telephone;
+}
+--- END FILE ---
+
+--- FILE: src/main/java/com/library/librarymanagement/config/ModelMapperConfig.java ---
+package com.library.librarymanagement.config;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class ModelMapperConfig {
+    @Bean
+    public ModelMapper modelMapper() {
+        return new ModelMapper();
     }
 }
 --- END FILE ---
@@ -206,17 +292,23 @@ public class LibraryManagementApplication {
 --- FILE: src/main/java/com/library/librarymanagement/service/MemberService.java ---
 package com.library.librarymanagement.service;
 
+import com.library.librarymanagement.exception.ResourceNotFoundException;
 import com.library.librarymanagement.model.Member;
 import com.library.librarymanagement.repository.MemberRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class MemberService {
 
+    private static final Logger log = LoggerFactory.getLogger(MemberService.class);
     private final MemberRepository memberRepository;
 
     @Autowired
@@ -225,22 +317,43 @@ public class MemberService {
     }
 
     public List<Member> findAllMembers() {
+        log.info("Fetching all members from the database...");
         return memberRepository.findAll();
     }
 
-    public Optional<Member> findMemberById(Long id) {
-        return memberRepository.findById(id);
+    @Cacheable(value = "members", key = "#id")
+    public Member findMemberById(Long id) {
+        log.info("Fetching member from database: id={}", id);
+        return memberRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + id));
     }
 
     public Member saveMember(Member member) {
+        log.info("Saving new member to the database...");
         return memberRepository.save(member);
     }
 
-    public void deleteMemberById(Long id) {
-        memberRepository.deleteById(id);
+    @CachePut(value = "members", key = "#id")
+    public Member updateMember(Long id, Member memberDetails) {
+        log.info("Updating member and cache: id={}", id);
+        Member member = memberRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + id));
+
+        member.setName(memberDetails.getName());
+        member.setAddress(memberDetails.getAddress());
+        member.setTelephone(memberDetails.getTelephone());
+
+        return memberRepository.save(member);
     }
 
-    // You can add more specific business logic here later, if needed.
+    @CacheEvict(value = "members", key = "#id")
+    public void deleteMemberById(Long id) {
+        log.info("Deleting member and evicting from cache: id={}", id);
+        if(!memberRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Member not found with id: " + id);
+        }
+        memberRepository.deleteById(id);
+    }
 }
 --- END FILE ---
 
@@ -276,9 +389,8 @@ public class BorrowerService {
     }
 
     public List<Borrower> findAllBorrowings() {
-        return borrowerRepository.findAll();
+        return borrowerRepository.findAllWithMemberAndBook();
     }
-
     public Optional<Borrower> findBorrowingById(Long id) {
         return borrowerRepository.findById(id);
     }
@@ -323,17 +435,23 @@ public class BorrowerService {
 --- FILE: src/main/java/com/library/librarymanagement/service/BookService.java ---
 package com.library.librarymanagement.service;
 
+import com.library.librarymanagement.exception.ResourceNotFoundException;
 import com.library.librarymanagement.model.Book;
 import com.library.librarymanagement.repository.BookRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class BookService {
 
+    private static final Logger log = LoggerFactory.getLogger(BookService.class);
     private final BookRepository bookRepository;
 
     @Autowired
@@ -342,18 +460,41 @@ public class BookService {
     }
 
     public List<Book> findAllBooks() {
+        log.info("Fetching all books from the database...");
         return bookRepository.findAll();
     }
 
-    public Optional<Book> findBookById(Long id) {
-        return bookRepository.findById(id);
+    @Cacheable(value = "books", key = "#id")
+    public Book findBookById(Long id) {
+        log.info("Fetching book from database: id={}", id);
+        return bookRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found with id: " + id));
     }
 
     public Book saveBook(Book book) {
+        log.info("Saving new book to the database...");
         return bookRepository.save(book);
     }
 
+    @CachePut(value = "books", key = "#id")
+    public Book updateBook(Long id, Book bookDetails) {
+        log.info("Updating book and cache: id={}", id);
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found with id: " + id));
+
+        book.setTitle(bookDetails.getTitle());
+        book.setPublisher(bookDetails.getPublisher());
+        book.setPublishDate(bookDetails.getPublishDate());
+
+        return bookRepository.save(book);
+    }
+
+    @CacheEvict(value = "books", key = "#id")
     public void deleteBookById(Long id) {
+        log.info("Deleting book and evicting from cache: id={}", id);
+        if (!bookRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Book not found with id: " + id);
+        }
         bookRepository.deleteById(id);
     }
 }
@@ -367,6 +508,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
+import java.io.Serializable;
 import java.time.LocalDate; // For handling dates
 
 @Entity
@@ -376,7 +518,7 @@ import java.time.LocalDate; // For handling dates
 @AllArgsConstructor
 // Optional: If you want to define a composite primary key explicitly
 // @IdClass(BorrowerId.class) // We'll create BorrowerId later if needed for explicit composite PK
-public class Borrower {
+public class Borrower implements Serializable {
 
     // For simplicity, let's start with a single auto-generated ID for Borrower records.
     // This allows a member to borrow the same book multiple times (each borrow is a new record).
@@ -424,6 +566,7 @@ import lombok.Data; // For Lombok annotations
 import lombok.NoArgsConstructor; // For Lombok annotations
 import lombok.AllArgsConstructor; // For Lombok annotations
 
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -432,7 +575,7 @@ import java.util.Set;
 @Data // Lombok: Generates getters, setters, toString, equals, and hashCode methods
 @NoArgsConstructor // Lombok: Generates a no-argument constructor
 @AllArgsConstructor // Lombok: Generates a constructor with all fields
-public class Member {
+public class Member implements Serializable {
 
     @Id // Marks this field as the primary key
     @GeneratedValue(strategy = GenerationType.IDENTITY) // Auto-increments the ID
@@ -463,7 +606,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
-import java.time.LocalDate; // For handling dates
+import java.io.Serializable;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -472,7 +616,7 @@ import java.util.Set;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Book {
+public class Book implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -497,81 +641,65 @@ public class Book {
 --- FILE: src/main/java/com/library/librarymanagement/controller/MemberController.java ---
 package com.library.librarymanagement.controller;
 
+import com.library.librarymanagement.dto.MemberDto;
 import com.library.librarymanagement.model.Member;
 import com.library.librarymanagement.service.MemberService;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-@Controller
-@RequestMapping("/members")
+@RestController
+@RequestMapping("/api/members")
 public class MemberController {
 
     private final MemberService memberService;
+    private final ModelMapper modelMapper;
 
     @Autowired
-    public MemberController(MemberService memberService) {
+    public MemberController(MemberService memberService, ModelMapper modelMapper) {
         this.memberService = memberService;
+        this.modelMapper = modelMapper;
     }
 
-    // Display a list of all members
     @GetMapping
-    public String listMembers(Model model) {
-        List<Member> members = memberService.findAllMembers();
-        model.addAttribute("members", members);
-        model.addAttribute("newMember", new Member()); // For the "Add Member" modal/form
-        return "members/index"; // Corresponds to src/main/resources/templates/members/index.html
+    public List<MemberDto> getAllMembers() {
+        return memberService.findAllMembers().stream()
+                .map(member -> modelMapper.map(member, MemberDto.class))
+                .collect(Collectors.toList());
     }
 
-    // Display form to add a new member (often integrated into the index page as a modal)
-    // For simplicity, we'll handle the form submission directly in a POST method.
-    // If a dedicated "add" page is needed:
-    // @GetMapping("/new")
-    // public String showAddForm(Model model) {
-    //    model.addAttribute("member", new Member());
-    //    return "members/add";
-    // }
-
-    // Handle adding a new member
-    @PostMapping("/add")
-    public String addMember(@ModelAttribute Member member, RedirectAttributes redirectAttributes) {
-        memberService.saveMember(member);
-        redirectAttributes.addFlashAttribute("message", "Member added successfully!");
-        return "redirect:/members";
+    @GetMapping("/{id}")
+    public ResponseEntity<MemberDto> getMemberById(@PathVariable Long id) {
+        Member member = memberService.findMemberById(id);
+        MemberDto memberDto = modelMapper.map(member, MemberDto.class);
+        return ResponseEntity.ok(memberDto);
     }
 
-    // Display form to edit an existing member
-    @GetMapping("/edit/{id}")
-    public String showEditForm(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
-        return memberService.findMemberById(id).map(member -> {
-            model.addAttribute("member", member);
-            return "members/edit"; // Corresponds to src/main/resources/templates/members/edit.html
-        }).orElseGet(() -> {
-            redirectAttributes.addFlashAttribute("error", "Member not found!");
-            return "redirect:/members";
-        });
+    @PostMapping
+    public ResponseEntity<MemberDto> createMember(@RequestBody MemberDto memberDto) {
+        Member memberRequest = modelMapper.map(memberDto, Member.class);
+        Member createdMember = memberService.saveMember(memberRequest);
+        MemberDto memberResponse = modelMapper.map(createdMember, MemberDto.class);
+        return new ResponseEntity<>(memberResponse, HttpStatus.CREATED);
     }
 
-    // Handle updating an existing member
-    @PostMapping("/update/{id}")
-    public String updateMember(@PathVariable Long id, @ModelAttribute Member member, RedirectAttributes redirectAttributes) {
-        // Ensure the ID from the path is set to the member object
-        member.setId(id);
-        memberService.saveMember(member);
-        redirectAttributes.addFlashAttribute("message", "Member updated successfully!");
-        return "redirect:/members";
+    @PutMapping("/{id}")
+    public ResponseEntity<MemberDto> updateMember(@PathVariable Long id, @RequestBody MemberDto memberDto) {
+        Member memberRequest = modelMapper.map(memberDto, Member.class);
+        Member updatedMember = memberService.updateMember(id, memberRequest);
+        MemberDto memberResponse = modelMapper.map(updatedMember, MemberDto.class);
+        return ResponseEntity.ok(memberResponse);
     }
 
-    // Handle deleting a member
-    @PostMapping("/delete/{id}")
-    public String deleteMember(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteMember(@PathVariable Long id) {
         memberService.deleteMemberById(id);
-        redirectAttributes.addFlashAttribute("message", "Member deleted successfully!");
-        return "redirect:/members";
+        return ResponseEntity.noContent().build();
     }
 }
 --- END FILE ---
@@ -579,158 +707,65 @@ public class MemberController {
 --- FILE: src/main/java/com/library/librarymanagement/controller/BookController.java ---
 package com.library.librarymanagement.controller;
 
+import com.library.librarymanagement.dto.BookDto;
 import com.library.librarymanagement.model.Book;
 import com.library.librarymanagement.service.BookService;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-@Controller
-@RequestMapping("/books")
+@RestController
+@RequestMapping("/api/books")
 public class BookController {
 
     private final BookService bookService;
+    private final ModelMapper modelMapper;
 
     @Autowired
-    public BookController(BookService bookService) {
+    public BookController(BookService bookService, ModelMapper modelMapper) {
         this.bookService = bookService;
+        this.modelMapper = modelMapper;
     }
 
-    // Display a list of all books
     @GetMapping
-    public String listBooks(Model model) {
-        List<Book> books = bookService.findAllBooks();
-        model.addAttribute("books", books);
-        model.addAttribute("newBook", new Book()); // For the "Add Book" modal/form
-        return "books/index"; // Corresponds to src/main/resources/templates/books/index.html
+    public List<BookDto> getAllBooks() {
+        return bookService.findAllBooks().stream()
+                .map(book -> modelMapper.map(book, BookDto.class))
+                .collect(Collectors.toList());
     }
 
-    // Handle adding a new book
-    @PostMapping("/add")
-    public String addBook(@ModelAttribute Book book, RedirectAttributes redirectAttributes) {
-        bookService.saveBook(book);
-        redirectAttributes.addFlashAttribute("message", "Book added successfully!");
-        return "redirect:/books";
+    @GetMapping("/{id}")
+    public ResponseEntity<BookDto> getBookById(@PathVariable Long id) {
+        Book book = bookService.findBookById(id);
+        BookDto bookDto = modelMapper.map(book, BookDto.class);
+        return ResponseEntity.ok(bookDto);
     }
 
-    // Display form to edit an existing book
-    @GetMapping("/edit/{id}")
-    public String showEditForm(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
-        return bookService.findBookById(id).map(book -> {
-            model.addAttribute("book", book);
-            return "books/edit"; // Corresponds to src/main/resources/templates/books/edit.html
-        }).orElseGet(() -> {
-            redirectAttributes.addFlashAttribute("error", "Book not found!");
-            return "redirect:/books";
-        });
+    @PostMapping
+    public ResponseEntity<BookDto> createBook(@RequestBody BookDto bookDto) {
+        Book bookRequest = modelMapper.map(bookDto, Book.class);
+        Book createdBook = bookService.saveBook(bookRequest);
+        BookDto bookResponse = modelMapper.map(createdBook, BookDto.class);
+        return new ResponseEntity<>(bookResponse, HttpStatus.CREATED);
     }
 
-    // Handle updating an existing book
-    @PostMapping("/update/{id}")
-    public String updateBook(@PathVariable Long id, @ModelAttribute Book book, RedirectAttributes redirectAttributes) {
-        book.setId(id); // Ensure the ID from the path is set to the book object
-        bookService.saveBook(book);
-        redirectAttributes.addFlashAttribute("message", "Book updated successfully!");
-        return "redirect:/books";
+    @PutMapping("/{id}")
+    public ResponseEntity<BookDto> updateBook(@PathVariable Long id, @RequestBody BookDto bookDto) {
+        Book bookRequest = modelMapper.map(bookDto, Book.class);
+        Book updatedBook = bookService.updateBook(id, bookRequest);
+        BookDto bookResponse = modelMapper.map(updatedBook, BookDto.class);
+        return ResponseEntity.ok(bookResponse);
     }
 
-    // Handle deleting a book
-    @PostMapping("/delete/{id}")
-    public String deleteBook(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
         bookService.deleteBookById(id);
-        redirectAttributes.addFlashAttribute("message", "Book deleted successfully!");
-        return "redirect:/books";
-    }
-}
---- END FILE ---
-
---- FILE: src/main/java/com/library/librarymanagement/controller/BorrowerController.java ---
-package com.library.librarymanagement.controller;
-
-import com.library.librarymanagement.model.Borrower;
-import com.library.librarymanagement.model.Member;
-import com.library.librarymanagement.model.Book;
-import com.library.librarymanagement.service.BorrowerService;
-import com.library.librarymanagement.service.MemberService;
-import com.library.librarymanagement.service.BookService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
-import java.time.LocalDate;
-import java.util.List;
-
-@Controller
-@RequestMapping("/borrowings")
-public class BorrowerController {
-
-    private final BorrowerService borrowerService;
-    private final MemberService memberService;
-    private final BookService bookService;
-
-    @Autowired
-    public BorrowerController(BorrowerService borrowerService, MemberService memberService, BookService bookService) {
-        this.borrowerService = borrowerService;
-        this.memberService = memberService;
-        this.bookService = bookService;
-    }
-
-    // Display a list of all borrowing records
-    @GetMapping
-    public String listBorrowings(Model model) {
-        List<Borrower> borrowings = borrowerService.findAllBorrowings();
-        model.addAttribute("borrowings", borrowings);
-        model.addAttribute("newBorrowing", new Borrower()); // For the "Issue Book" form
-
-        // Also add members and books to the model for dropdowns in the issue form
-        List<Member> members = memberService.findAllMembers();
-        List<Book> books = bookService.findAllBooks();
-        model.addAttribute("members", members);
-        model.addAttribute("books", books);
-
-        return "borrowings/index"; // Corresponds to src/main/resources/templates/borrowings/index.html
-    }
-
-    // Handle issuing a new book (POST request from the form)
-    @PostMapping("/issue")
-    public String issueBook(@RequestParam Long memberId,
-                            @RequestParam Long bookId,
-                            @RequestParam LocalDate issueDate,
-                            @RequestParam LocalDate dueDate,
-                            RedirectAttributes redirectAttributes) {
-        try {
-            borrowerService.issueBook(memberId, bookId, issueDate, dueDate);
-            redirectAttributes.addFlashAttribute("message", "Book issued successfully!");
-        } catch (IllegalArgumentException e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
-        }
-        return "redirect:/borrowings";
-    }
-
-    // Handle returning a book
-    @PostMapping("/return/{id}")
-    public String returnBook(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        try {
-            borrowerService.returnBook(id, LocalDate.now()); // Set return date to today
-            redirectAttributes.addFlashAttribute("message", "Book returned successfully!");
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
-        }
-        return "redirect:/borrowings";
-    }
-
-    // Handle deleting a borrowing record
-    @PostMapping("/delete/{id}")
-    public String deleteBorrowing(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        borrowerService.deleteBorrowingById(id);
-        redirectAttributes.addFlashAttribute("message", "Borrowing record deleted successfully!");
-        return "redirect:/borrowings";
+        return ResponseEntity.noContent().build();
     }
 }
 --- END FILE ---
@@ -740,17 +775,17 @@ package com.library.librarymanagement.repository;
 
 import com.library.librarymanagement.model.Borrower;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 @Repository
 public interface BorrowerRepository extends JpaRepository<Borrower, Long> {
-    // Inherits basic CRUD operations
-
-    // Example custom query: find all borrowings by a specific member
-    // List<Borrower> findByMemberId(Long memberId);
-
-    // Example custom query: find all active borrowings (not returned yet) for a book
-    // List<Borrower> findByBookIdAndReturnDateIsNull(Long bookId);
+    // Member ve Book bilgilerini tek sorguda getiren özel sorgu.
+    // Bu, "N+1 select" problemini çözer ve LazyInitializationException'ı önler.
+    @Query("SELECT b FROM Borrower b JOIN FETCH b.member JOIN FETCH b.book")
+    List<Borrower> findAllWithMemberAndBook();
 }
 --- END FILE ---
 
@@ -787,10 +822,15 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 --- FILE: src/main/resources/application.properties ---
 spring.application.name=library-management
 # --- Database Configuration ---
-spring.datasource.url=jdbc:mysql://localhost:3306/library_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-spring.datasource.username=library_user
-spring.datasource.password=library_password
+spring.datasource.url=${SPRING_DATASOURCE_URL}
+spring.datasource.username=${SPRING_DATASOURCE_USERNAME}
+spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
 spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+# --- Redis Configuration ---
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+
 
 # --- JPA/Hibernate Configuration ---
 # ddl-auto options:
@@ -802,492 +842,8 @@ spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.format_sql=true
 spring.jpa.open-in-view=false
---- END FILE ---
-
---- FILE: src/main/resources/static/css/main.css ---
-/* Custom styles for the Library Management System */
-
-body {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-}
-
-.footer {
-    flex-shrink: none; /* or 0 */
-}
-
-/* Add some spacing for the main content */
-.container.mt-4 {
-    flex: 1; /* Allows the content to grow and push the footer down */
-}
-
-/* Optional: improve spacing for form labels */
-.form-label {
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-}
-
-/* Optional: style for badges */
-.badge {
-    padding: 0.5em 0.75em;
-    font-size: 0.8em;
-    vertical-align: middle;
-}
-
-/* Adjust table header background if needed */
-.table-dark {
-    background-color: #343a40 !important; /* Ensure dark background */
-    color: white; /* Ensure white text */
-}
-
-/* Small adjustments for forms/modals if needed */
-.modal-body {
-    padding-bottom: 0; /* Less padding if elements inside have their own margins */
-}
-.modal-footer {
-    border-top: none; /* Remove default border */
-}
---- END FILE ---
-
---- FILE: src/main/resources/templates/index.html ---
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{layout :: head_content}"></head>
-<body>
-<div th:replace="~{layout :: navbar}"></div>
-<div class="container mt-4">
-    <div th:replace="~{layout :: messages}"></div>
-    <div th:fragment="content">
-        <h2 class="mb-4">Welcome to the Library Management System!</h2>
-        <p>This application allows you to manage library members, books, and borrowing records.</p>
-        <p>Use the navigation bar above to get started:</p>
-        <ul>
-            <li><a th:href="@{/members}">Manage Members</a></li>
-            <li><a th:href="@{/books}">Manage Books</a></li>
-            <li><a th:href="@{/borrowings}">Manage Borrowings</a></li>
-        </ul>
-    </div>
-</div>
-<div th:replace="~{layout :: footer}"></div>
-<div th:replace="~{layout :: scripts}"></div>
-</body>
-</html>
---- END FILE ---
-
---- FILE: src/main/resources/templates/layout.html ---
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${title ?: 'Library Management'}"></title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom CSS (optional, if you want to add your own styles) -->
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-</head>
-<body>
-<div th:fragment="head_content">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${title ?: 'Library Management'}"></title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom CSS (optional, if you want to add your own styles) -->
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-</div>
-
-<nav th:fragment="navbar" class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">Library App</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link" th:href="@{/members}">Members</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" th:href="@{/books}">Books</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" th:href="@{/borrowings}">Borrowings</a>
-                </li>
-            </ul>
-        </div>
-    </div>
-</nav>
-
-<div th:fragment="messages">
-    <!-- Messages (success/error) -->
-    <div th:if="${message}" class="alert alert-success alert-dismissible fade show" role="alert">
-        <span th:text="${message}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
-        <span th:text="${error}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-</div>
 
 
-<div class="container mt-4">
-    <!-- Main content will be inserted here -->
-    <div th:replace="${content}">
-        Default content goes here if 'content' fragment is not provided.
-    </div>
-</div>
-
-<footer th:fragment="footer" class="footer mt-auto py-3 bg-light">
-    <div class="container text-center">
-        <span class="text-muted">Library Management System &copy; 2024</span>
-    </div>
-</footer>
-
-<div th:fragment="scripts">
-    <!-- Bootstrap JS Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS (optional) -->
-    <script th:src="@{/js/main.js}"></script>
-</div>
-</body>
-</html>
---- END FILE ---
-
---- FILE: src/main/resources/templates/members/index.html ---
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Members - Library Management</title>
-    <!-- We'll replace this head with the layout's head -->
-</head>
-<body>
-<!-- This div will be replaced by the content fragment in layout.html -->
-<div th:replace="~{layout :: content}">
-    <h2 class="mb-4">Members</h2>
-
-    <!-- Add Member Button (triggers modal) -->
-    <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addMemberModal">
-        Add New Member
-    </button>
-
-    <table class="table table-striped table-hover">
-        <thead class="table-dark">
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Address</th>
-            <th>Telephone</th>
-            <th>Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="member : ${members}">
-            <td th:text="${member.id}">1</td>
-            <td th:text="${member.name}">John Doe</td>
-            <td th:text="${member.address}">123 Main St</td>
-            <td th:text="${member.telephone}">123-456-7890</td>
-            <td>
-                <a th:href="@{/members/edit/{id}(id=${member.id})}" class="btn btn-sm btn-info me-2">Edit</a>
-                <form th:action="@{/members/delete/{id}(id=${member.id})}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this member?');">
-                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                </form>
-            </td>
-        </tr>
-        </tbody>
-    </table>
-
-    <!-- Add Member Modal -->
-    <div class="modal fade" id="addMemberModal" tabindex="-1" aria-labelledby="addMemberModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addMemberModalLabel">Add New Member</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form th:action="@{/members/add}" th:object="${newMember}" method="post">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="name" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="name" th:field="*{name}" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="address" class="form-label">Address</label>
-                            <input type="text" class="form-control" id="address" th:field="*{address}">
-                        </div>
-                        <div class="mb-3">
-                            <label for="telephone" class="form-label">Telephone</label>
-                            <input type="text" class="form-control" id="telephone" th:field="*{telephone}">
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Save Member</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-</body>
-</html>
---- END FILE ---
-
---- FILE: src/main/resources/templates/members/edit.html ---
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Edit Member - Library Management</title>
-</head>
-<body>
-<div th:replace="~{layout :: content}">
-    <h2 class="mb-4">Edit Member</h2>
-
-    <form th:action="@{/members/update/{id}(id=${member.id})}" th:object="${member}" method="post">
-        <!-- Hidden field for ID -->
-        <input type="hidden" th:field="*{id}" />
-
-        <div class="mb-3">
-            <label for="name" class="form-label">Name</label>
-            <input type="text" class="form-control" id="name" th:field="*{name}" required>
-        </div>
-        <div class="mb-3">
-            <label for="address" class="form-label">Address</label>
-            <input type="text" class="form-control" id="address" th:field="*{address}">
-        </div>
-        <div class="mb-3">
-            <label for="telephone" class="form-label">Telephone</label>
-            <input type="text" class="form-control" id="telephone" th:field="*{telephone}">
-        </div>
-        <button type="submit" class="btn btn-primary">Update Member</button>
-        <a th:href="@{/members}" class="btn btn-secondary">Cancel</a>
-    </form>
-</div>
-</body>
-</html>
---- END FILE ---
-
---- FILE: src/main/resources/templates/borrowings/index.html ---
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Borrowings - Library Management</title>
-    <!-- We'll replace this head with the layout's head -->
-</head>
-<body>
-<!-- This div will be replaced by the content fragment in layout.html -->
-<div th:replace="~{layout :: content}">
-    <h2 class="mb-4">Borrowing Records</h2>
-
-    <!-- Issue Book Button (triggers modal) -->
-    <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#issueBookModal">
-        Issue New Book
-    </button>
-
-    <table class="table table-striped table-hover">
-        <thead class="table-dark">
-        <tr>
-            <th>ID</th>
-            <th>Member</th>
-            <th>Book</th>
-            <th>Issue Date</th>
-            <th>Due Date</th>
-            <th>Return Date</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="borrowing : ${borrowings}">
-            <td th:text="${borrowing.id}">1</td>
-            <td th:text="${borrowing.member.name}">John Doe</td>
-            <td th:text="${borrowing.book.title}">The Great Gatsby</td>
-            <td th:text="${borrowing.issueDate}">2023-10-26</td>
-            <td th:text="${borrowing.dueDate}">2023-11-09</td>
-            <td>
-                <span th:if="${borrowing.returnDate}" th:text="${borrowing.returnDate}">2023-11-05</span>
-                <span th:unless="${borrowing.returnDate}">Not Returned</span>
-            </td>
-            <td>
-                <span th:if="${borrowing.returnDate}" class="badge bg-success">Returned</span>
-                <span th:unless="${borrowing.returnDate}" class="badge bg-warning text-dark">On Loan</span>
-            </td>
-            <td>
-                <form th:if="${borrowing.returnDate == null}" th:action="@{/borrowings/return/{id}(id=${borrowing.id})}" method="post" style="display:inline;" onsubmit="return confirm('Confirm return for this book?');">
-                    <button type="submit" class="btn btn-sm btn-success me-2">Return</button>
-                </form>
-                <form th:action="@{/borrowings/delete/{id}(id=${borrowing.id})}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this borrowing record?');">
-                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                </form>
-            </td>
-        </tr>
-        </tbody>
-    </table>
-
-    <!-- Issue Book Modal -->
-    <div class="modal fade" id="issueBookModal" tabindex="-1" aria-labelledby="issueBookModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="issueBookModalLabel">Issue New Book</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form th:action="@{/borrowings/issue}" method="post">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="memberId" class="form-label">Member</label>
-                            <select class="form-select" id="memberId" name="memberId" required>
-                                <option value="">Select Member</option>
-                                <option th:each="member : ${members}" th:value="${member.id}" th:text="${member.name}"></option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="bookId" class="form-label">Book</label>
-                            <select class="form-select" id="bookId" name="bookId" required>
-                                <option value="">Select Book</option>
-                                <option th:each="book : ${books}" th:value="${book.id}" th:text="${book.title}"></option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="issueDate" class="form-label">Issue Date</label>
-                            <input type="date" class="form-control" id="issueDate" name="issueDate" th:value="${#dates.format(#dates.createToday(), 'yyyy-MM-dd')}" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="dueDate" class="form-label">Due Date</label>
-                            <input type="date" class="form-control" id="dueDate" name="dueDate" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Issue Book</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-</body>
-</html>
---- END FILE ---
-
---- FILE: src/main/resources/templates/books/index.html ---
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Books - Library Management</title>
-    <!-- We'll replace this head with the layout's head -->
-</head>
-<body>
-<!-- This div will be replaced by the content fragment in layout.html -->
-<div th:replace="~{layout :: content}">
-    <h2 class="mb-4">Books</h2>
-
-    <!-- Add Book Button (triggers modal) -->
-    <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addBookModal">
-        Add New Book
-    </button>
-
-    <table class="table table-striped table-hover">
-        <thead class="table-dark">
-        <tr>
-            <th>ID</th>
-            <th>Title</th>
-            <th>Publisher</th>
-            <th>Publish Date</th>
-            <th>Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="book : ${books}">
-            <td th:text="${book.id}">1</td>
-            <td th:text="${book.title}">The Great Gatsby</td>
-            <td th:text="${book.publisher}">Scribner</td>
-            <td th:text="${book.publishDate}">1925-04-10</td>
-            <td>
-                <a th:href="@{/books/edit/{id}(id=${book.id})}" class="btn btn-sm btn-info me-2">Edit</a>
-                <form th:action="@{/books/delete/{id}(id=${book.id})}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this book?');">
-                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                </form>
-            </td>
-        </tr>
-        </tbody>
-    </table>
-
-    <!-- Add Book Modal -->
-    <div class="modal fade" id="addBookModal" tabindex="-1" aria-labelledby="addBookModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addBookModalLabel">Add New Book</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form th:action="@{/books/add}" th:object="${newBook}" method="post">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="title" class="form-label">Title</label>
-                            <input type="text" class="form-control" id="title" th:field="*{title}" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="publisher" class="form-label">Publisher</label>
-                            <input type="text" class="form-control" id="publisher" th:field="*{publisher}">
-                        </div>
-                        <div class="mb-3">
-                            <label for="publishDate" class="form-label">Publish Date</label>
-                            <input type="date" class="form-control" id="publishDate" th:field="*{publishDate}">
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Save Book</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-</body>
-</html>
---- END FILE ---
-
---- FILE: src/main/resources/templates/books/edit.html ---
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Edit Book - Library Management</title>
-</head>
-<body>
-<div th:replace="~{layout :: content}">
-    <h2 class="mb-4">Edit Book</h2>
-
-    <form th:action="@{/books/update/{id}(id=${book.id})}" th:object="${book}" method="post">
-        <!-- Hidden field for ID -->
-        <input type="hidden" th:field="*{id}" />
-
-        <div class="mb-3">
-            <label for="title" class="form-label">Title</label>
-            <input type="text" class="form-control" id="title" th:field="*{title}" required>
-        </div>
-        <div class="mb-3">
-            <label for="publisher" class="form-label">Publisher</label>
-            <input type="text" class="form-control" id="publisher" th:field="*{publisher}">
-        </div>
-        <div class="mb-3">
-            <label for="publishDate" class="form-label">Publish Date</label>
-            <input type="date" class="form-control" id="publishDate" th:field="*{publishDate}">
-        </div>
-        <button type="submit" class="btn btn-primary">Update Book</button>
-        <a th:href="@{/books}" class="btn btn-secondary">Cancel</a>
-    </form>
-</div>
-</body>
-</html>
 --- END FILE ---
 
 --- FILE: .mvn/wrapper/maven-wrapper.properties ---

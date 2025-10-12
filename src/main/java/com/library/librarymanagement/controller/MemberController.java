@@ -1,79 +1,63 @@
 package com.library.librarymanagement.controller;
 
+import com.library.librarymanagement.dto.MemberDto;
 import com.library.librarymanagement.model.Member;
 import com.library.librarymanagement.service.MemberService;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-@Controller
-@RequestMapping("/members")
+@RestController
+@RequestMapping("/api/members")
 public class MemberController {
 
     private final MemberService memberService;
+    private final ModelMapper modelMapper;
 
     @Autowired
-    public MemberController(MemberService memberService) {
+    public MemberController(MemberService memberService, ModelMapper modelMapper) {
         this.memberService = memberService;
+        this.modelMapper = modelMapper;
     }
 
-    // Display a list of all members
     @GetMapping
-    public String listMembers(Model model) {
-        List<Member> members = memberService.findAllMembers();
-        model.addAttribute("members", members);
-        model.addAttribute("newMember", new Member()); // For the "Add Member" modal/form
-        return "members/index"; // Corresponds to src/main/resources/templates/members/index.html
+    public List<MemberDto> getAllMembers() {
+        return memberService.findAllMembers().stream()
+                .map(member -> modelMapper.map(member, MemberDto.class))
+                .collect(Collectors.toList());
     }
 
-    // Display form to add a new member (often integrated into the index page as a modal)
-    // For simplicity, we'll handle the form submission directly in a POST method.
-    // If a dedicated "add" page is needed:
-    // @GetMapping("/new")
-    // public String showAddForm(Model model) {
-    //    model.addAttribute("member", new Member());
-    //    return "members/add";
-    // }
-
-    // Handle adding a new member
-    @PostMapping("/add")
-    public String addMember(@ModelAttribute Member member, RedirectAttributes redirectAttributes) {
-        memberService.saveMember(member);
-        redirectAttributes.addFlashAttribute("message", "Member added successfully!");
-        return "redirect:/members";
+    @GetMapping("/{id}")
+    public ResponseEntity<MemberDto> getMemberById(@PathVariable Long id) {
+        Member member = memberService.findMemberById(id);
+        MemberDto memberDto = modelMapper.map(member, MemberDto.class);
+        return ResponseEntity.ok(memberDto);
     }
 
-    // Display form to edit an existing member
-    @GetMapping("/edit/{id}")
-    public String showEditForm(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
-        return memberService.findMemberById(id).map(member -> {
-            model.addAttribute("member", member);
-            return "members/edit"; // Corresponds to src/main/resources/templates/members/edit.html
-        }).orElseGet(() -> {
-            redirectAttributes.addFlashAttribute("error", "Member not found!");
-            return "redirect:/members";
-        });
+    @PostMapping
+    public ResponseEntity<MemberDto> createMember(@RequestBody MemberDto memberDto) {
+        Member memberRequest = modelMapper.map(memberDto, Member.class);
+        Member createdMember = memberService.saveMember(memberRequest);
+        MemberDto memberResponse = modelMapper.map(createdMember, MemberDto.class);
+        return new ResponseEntity<>(memberResponse, HttpStatus.CREATED);
     }
 
-    // Handle updating an existing member
-    @PostMapping("/update/{id}")
-    public String updateMember(@PathVariable Long id, @ModelAttribute Member member, RedirectAttributes redirectAttributes) {
-        // Ensure the ID from the path is set to the member object
-        member.setId(id);
-        memberService.saveMember(member);
-        redirectAttributes.addFlashAttribute("message", "Member updated successfully!");
-        return "redirect:/members";
+    @PutMapping("/{id}")
+    public ResponseEntity<MemberDto> updateMember(@PathVariable Long id, @RequestBody MemberDto memberDto) {
+        Member memberRequest = modelMapper.map(memberDto, Member.class);
+        Member updatedMember = memberService.updateMember(id, memberRequest);
+        MemberDto memberResponse = modelMapper.map(updatedMember, MemberDto.class);
+        return ResponseEntity.ok(memberResponse);
     }
 
-    // Handle deleting a member
-    @PostMapping("/delete/{id}")
-    public String deleteMember(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteMember(@PathVariable Long id) {
         memberService.deleteMemberById(id);
-        redirectAttributes.addFlashAttribute("message", "Member deleted successfully!");
-        return "redirect:/members";
+        return ResponseEntity.noContent().build();
     }
 }
