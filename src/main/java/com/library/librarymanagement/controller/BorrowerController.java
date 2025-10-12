@@ -1,84 +1,67 @@
 package com.library.librarymanagement.controller;
 
+import com.library.librarymanagement.dto.BorrowerDto;
 import com.library.librarymanagement.model.Borrower;
-import com.library.librarymanagement.model.Member;
-import com.library.librarymanagement.model.Book;
 import com.library.librarymanagement.service.BorrowerService;
-import com.library.librarymanagement.service.MemberService;
-import com.library.librarymanagement.service.BookService;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
-@Controller
-@RequestMapping("/borrowings")
+@RestController
+@RequestMapping("/api/borrowings")
 public class BorrowerController {
 
     private final BorrowerService borrowerService;
-    private final MemberService memberService;
-    private final BookService bookService;
+    private final ModelMapper modelMapper;
 
     @Autowired
-    public BorrowerController(BorrowerService borrowerService, MemberService memberService, BookService bookService) {
+    public BorrowerController(BorrowerService borrowerService, ModelMapper modelMapper) {
         this.borrowerService = borrowerService;
-        this.memberService = memberService;
-        this.bookService = bookService;
+        this.modelMapper = modelMapper;
     }
 
-    // Display a list of all borrowing records
+    private BorrowerDto convertToDto(Borrower borrower) {
+        BorrowerDto borrowerDto = modelMapper.map(borrower, BorrowerDto.class);
+        borrowerDto.setMemberId(borrower.getMember().getId());
+        borrowerDto.setMemberName(borrower.getMember().getName());
+        borrowerDto.setBookId(borrower.getBook().getId());
+        borrowerDto.setBookTitle(borrower.getBook().getTitle());
+        return borrowerDto;
+    }
+
     @GetMapping
-    public String listBorrowings(Model model) {
-        List<Borrower> borrowings = borrowerService.findAllBorrowings();
-        model.addAttribute("borrowings", borrowings);
-        model.addAttribute("newBorrowing", new Borrower()); // For the "Issue Book" form
-
-        // Also add members and books to the model for dropdowns in the issue form
-        List<Member> members = memberService.findAllMembers();
-        List<Book> books = bookService.findAllBooks();
-        model.addAttribute("members", members);
-        model.addAttribute("books", books);
-
-        return "borrowings/index"; // Corresponds to src/main/resources/templates/borrowings/index.html
+    public List<BorrowerDto> getAllBorrowings() {
+        return borrowerService.findAllBorrowings().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
 
-    // Handle issuing a new book (POST request from the form)
     @PostMapping("/issue")
-    public String issueBook(@RequestParam Long memberId,
-                            @RequestParam Long bookId,
-                            @RequestParam LocalDate issueDate,
-                            @RequestParam LocalDate dueDate,
-                            RedirectAttributes redirectAttributes) {
-        try {
-            borrowerService.issueBook(memberId, bookId, issueDate, dueDate);
-            redirectAttributes.addFlashAttribute("message", "Book issued successfully!");
-        } catch (IllegalArgumentException e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
-        }
-        return "redirect:/borrowings";
+    public ResponseEntity<BorrowerDto> issueBook(@RequestBody BorrowerDto borrowerDto) {
+        Borrower newBorrowing = borrowerService.issueBook(
+                borrowerDto.getMemberId(),
+                borrowerDto.getBookId(),
+                borrowerDto.getIssueDate(),
+                borrowerDto.getDueDate()
+        );
+        return new ResponseEntity<>(convertToDto(newBorrowing), HttpStatus.CREATED);
     }
 
-    // Handle returning a book
-    @PostMapping("/return/{id}")
-    public String returnBook(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        try {
-            borrowerService.returnBook(id, LocalDate.now()); // Set return date to today
-            redirectAttributes.addFlashAttribute("message", "Book returned successfully!");
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
-        }
-        return "redirect:/borrowings";
+    @PutMapping("/{id}/return")
+    public ResponseEntity<BorrowerDto> returnBook(@PathVariable Long id) {
+        Borrower returnedBorrowing = borrowerService.returnBook(id, LocalDate.now());
+        return ResponseEntity.ok(convertToDto(returnedBorrowing));
     }
 
-    // Handle deleting a borrowing record
-    @PostMapping("/delete/{id}")
-    public String deleteBorrowing(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBorrowing(@PathVariable Long id) {
         borrowerService.deleteBorrowingById(id);
-        redirectAttributes.addFlashAttribute("message", "Borrowing record deleted successfully!");
-        return "redirect:/borrowings";
+        return ResponseEntity.noContent().build();
     }
 }

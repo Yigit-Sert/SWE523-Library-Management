@@ -43,25 +43,24 @@ public class BorrowerService {
                 .orElseThrow(() -> new IllegalArgumentException("Book not found with ID: " + bookId));
 
         Borrower borrower = new Borrower();
-        borrower.setMember(member); // Set both sides of the relationship
-        borrower.setBook(book);     // Set both sides of the relationship
+        borrower.setMember(member);
+        borrower.setBook(book);
         borrower.setIssueDate(issueDate);
         borrower.setDueDate(dueDate);
-        // returnDate is null initially
 
         return borrowerRepository.save(borrower);
     }
 
     @Transactional
     public Borrower returnBook(Long borrowingId, LocalDate returnDate) {
-        Borrower borrower = borrowerRepository.findById(borrowingId)
+        Borrower borrower = borrowerRepository.findByIdWithMemberAndBook(borrowingId)
                 .orElseThrow(() -> new IllegalArgumentException("Borrowing record not found with ID: " + borrowingId));
 
         if (borrower.getReturnDate() != null) {
             throw new IllegalStateException("Book already returned for borrowing ID: " + borrowingId);
         }
         borrower.setReturnDate(returnDate);
-        return borrowerRepository.save(borrower);
+        return borrower;
     }
 
     public void deleteBorrowingById(Long id) {

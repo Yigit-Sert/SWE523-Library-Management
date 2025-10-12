@@ -5,7 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
-import java.time.LocalDate; // For handling dates
+import java.io.Serializable;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -14,22 +15,21 @@ import java.util.Set;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Book {
+public class Book implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "title", length = 32, nullable = false)
+    @Column(name = "title", length = 255, nullable = false)
     private String title;
 
     @Column(name = "publisher", length = 32)
     private String publisher;
 
-    @Column(name = "publish_date") // Will be mapped as a DATE type in MySQL
-    private LocalDate publishDate; // Using LocalDate for date fields
+    @Column(name = "publish_date")
+    private LocalDate publishDate;
 
-    // --- Relationship with Borrowers ---
     // A Book can be part of many Borrower records (one-to-many relationship)
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<Borrower> borrowings = new HashSet<>();
