@@ -6,7 +6,12 @@ import com.library.librarymanagement.model.Member;
 import com.library.librarymanagement.repository.BorrowerRepository;
 import com.library.librarymanagement.repository.BookRepository;
 import com.library.librarymanagement.repository.MemberRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +22,7 @@ import java.util.Optional;
 @Service
 public class BorrowerService {
 
+    private static final Logger log = LoggerFactory.getLogger(BorrowerService.class);
     private final BorrowerRepository borrowerRepository;
     private final MemberRepository memberRepository;
     private final BookRepository bookRepository;
@@ -28,15 +34,22 @@ public class BorrowerService {
         this.bookRepository = bookRepository;
     }
 
+    @Cacheable("borrowings_all")
     public List<Borrower> findAllBorrowings() {
+        log.info("Fetching all borrowings from the database...");
         return borrowerRepository.findAllWithMemberAndBook();
     }
+
+    @Cacheable(value = "borrowings", key = "#id")
     public Optional<Borrower> findBorrowingById(Long id) {
+        log.info("Fetching borrowing from database: id={}", id);
         return borrowerRepository.findById(id);
     }
 
     @Transactional
+    @CacheEvict(value = "borrowings_all", allEntries = true)
     public Borrower issueBook(Long memberId, Long bookId, LocalDate issueDate, LocalDate dueDate) {
+        log.info("Issuing a book and evicting 'borrowings_all' cache...");
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("Member not found with ID: " + memberId));
         Book book = bookRepository.findById(bookId)
@@ -52,7 +65,12 @@ public class BorrowerService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "borrowings", key = "#borrowingId"),
+            @CacheEvict(value = "borrowings_all", allEntries = true)
+    })
     public Borrower returnBook(Long borrowingId, LocalDate returnDate) {
+        log.info("Returning a book and evicting caches for id={} and 'borrowings_all'", borrowingId);
         Borrower borrower = borrowerRepository.findByIdWithMemberAndBook(borrowingId)
                 .orElseThrow(() -> new IllegalArgumentException("Borrowing record not found with ID: " + borrowingId));
 
@@ -63,9 +81,12 @@ public class BorrowerService {
         return borrower;
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "borrowings", key = "#id"),
+            @CacheEvict(value = "borrowings_all", allEntries = true)
+    })
     public void deleteBorrowingById(Long id) {
+        log.info("Deleting borrowing and evicting caches for id={} and 'borrowings_all'", id);
         borrowerRepository.deleteById(id);
     }
-
-    // You can add more specific business logic here later, e.g., for overdue books.
 }
