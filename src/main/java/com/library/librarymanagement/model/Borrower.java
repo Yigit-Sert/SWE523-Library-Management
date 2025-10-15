@@ -1,16 +1,16 @@
 package com.library.librarymanagement.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+import lombok.*;
 
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.Objects;
 
 @Entity
 @Table(name = "borrowers")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Borrower implements Serializable {
@@ -19,13 +19,10 @@ public class Borrower implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // --- Relationships ---
-    // Many Borrowers can belong to one Member (many-to-one relationship)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    // Many Borrowers can refer to one Book (many-to-one relationship)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "book_id", nullable = false)
     private Book book;
@@ -39,10 +36,16 @@ public class Borrower implements Serializable {
     @Column(name = "return_date")
     private LocalDate returnDate;
 
-    public void setMemberAndBook(Member member, Book book) {
-        this.member = member;
-        this.book = book;
-        member.getBorrowings().add(this);
-        book.getBorrowings().add(this);
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Borrower borrower = (Borrower) o;
+        return id != null && Objects.equals(id, borrower.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }
