@@ -27,4 +27,12 @@ public class UserService {
         user.setRole(newRole);
         return userRepository.save(user);
     }
+
+    @Transactional
+    public User updateProfilePictureUrl(String email, String fileUrl) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+        user.setProfilePictureUrl(fileUrl);
+        return userRepository.save(user);
+    }
 }
