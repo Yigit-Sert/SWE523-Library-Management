@@ -77,9 +77,34 @@
                 <!-- Admin member table will be rendered here -->
             </div>
         </div>
+
+        <div class="admin-section">
+            <h3>Borrowing Management</h3>
+            <form id="issue-book-form" class="admin-form">
+                <select id="issue-member-select" required><option value="">Select Member...</option></select>
+                <select id="issue-book-select" required><option value="">Select Book...</option></select>
+                <button type="submit">Issue Book</button>
+            </form>
+            <div id="borrowing-list-container">
+                <!-- Admin borrowing table will be rendered here -->
+            </div>
+        </div>
     </section>
 
 </main>
+
+<!-- Generic modal for editing books and members -->
+<div id="edit-modal" class="modal hidden">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h3 id="modal-title">Edit Item</h3>
+        <form id="edit-form">
+            <!-- Form fields will be dynamically inserted here by JS -->
+            <div id="edit-form-fields"></div>
+            <button type="submit">Save Changes</button>
+        </form>
+    </div>
+</div>
 
 <script src="app.js" defer></script>
 </body>

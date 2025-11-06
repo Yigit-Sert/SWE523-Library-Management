@@ -13,7 +13,13 @@ const adminBookListContainer = document.getElementById('admin-book-list-containe
 const adminMemberListContainer = document.getElementById('admin-member-list-container');
 const addBookForm = document.getElementById('add-book-form');
 const addMemberForm = document.getElementById('add-member-form');
-
+const borrowingListContainer = document.getElementById('borrowing-list-container');
+const issueBookForm = document.getElementById('issue-book-form');
+const editModal = document.getElementById('edit-modal');
+const modalTitle = document.getElementById('modal-title');
+const editForm = document.getElementById('edit-form');
+const editFormFields = document.getElementById('edit-form-fields');
+const closeModalButton = document.querySelector('.close-button');
 
 // --- CORE FUNCTIONS ---
 
@@ -25,6 +31,15 @@ async function main() {
     if (currentUser && currentUser.role === 'ADMIN') {
         addBookForm.addEventListener('submit', handleCreateBook);
         addMemberForm.addEventListener('submit', handleCreateMember);
+        issueBookForm.addEventListener('submit', handleIssueBook);
+        editForm.addEventListener('submit', handleUpdate);
+
+        closeModalButton.onclick = () => editModal.classList.add('hidden');
+        window.onclick = (event) => {
+            if (event.target == editModal) {
+                editModal.classList.add('hidden');
+            }
+        };
     }
 }
 
@@ -57,11 +72,13 @@ function renderUI() {
         logoutButton.onclick = logout;
         userActionsDiv.appendChild(logoutButton);
 
-        if (currentUser.role === 'ADMIN') {
+        if (currentUser && currentUser.role === 'ADMIN') {
             adminPanelSection.classList.remove('hidden');
             loadUsersForAdmin();
             loadAdminBooks();
             loadAdminMembers();
+            loadBorrowings();
+            populateIssueBookDropdowns();
         }
     } else {
         const loginButton = document.createElement('button');
@@ -115,13 +132,22 @@ async function loadAdminBooks() {
         const books = await response.json();
         let tableHTML = `<table><thead><tr><th>ID</th><th>Title</th><th>Publisher</th><th>Actions</th></tr></thead><tbody>`;
         books.forEach(book => {
-            tableHTML += `<tr><td>${book.id}</td><td>${book.title}</td><td>${book.publisher || 'N/A'}</td><td><button class="delete-btn" onclick="deleteBook(${book.id})">Delete</button></td></tr>`;
+            tableHTML += `
+                <tr>
+                    <td>${book.id}</td>
+                    <td>${book.title}</td>
+                    <td>${book.publisher || 'N/A'}</td>
+                    <td class="action-buttons">
+                        <button class="edit-btn" onclick="openEditModal('book', ${book.id})">Edit</button>
+                        <button class="delete-btn" onclick="deleteBook(${book.id})">Delete</button>
+                    </td>
+                </tr>`;
         });
         tableHTML += '</tbody></table>';
         adminBookListContainer.innerHTML = tableHTML;
     } catch (error) {
-        adminBookListContainer.innerHTML = '<p>An error occurred while loading books.</p>';
-        console.error('Failed to load admin books:', error);
+        bookListContainer.innerHTML = '<p>An error occurred while loading books.</p>';
+        console.error('Failed to load books:', error);
     }
 }
 
@@ -131,13 +157,69 @@ async function loadAdminMembers() {
         const members = await response.json();
         let tableHTML = `<table><thead><tr><th>ID</th><th>Name</th><th>Address</th><th>Telephone</th><th>Actions</th></tr></thead><tbody>`;
         members.forEach(member => {
-            tableHTML += `<tr><td>${member.id}</td><td>${member.name}</td><td>${member.address || 'N/A'}</td><td>${member.telephone || 'N/A'}</td><td><button class="delete-btn" onclick="deleteMember(${member.id})">Delete</button></td></tr>`;
+            tableHTML += `
+                <tr>
+                    <td>${member.id}</td>
+                    <td>${member.name}</td>
+                    <td>${member.address || 'N/A'}</td>
+                    <td>${member.telephone || 'N/A'}</td>
+                    <td class="action-buttons">
+                        <button class="edit-btn" onclick="openEditModal('member', ${member.id})">Edit</button>
+                        <button class="delete-btn" onclick="deleteMember(${member.id})">Delete</button>
+                    </td>
+                </tr>`;
         });
         tableHTML += '</tbody></table>';
         adminMemberListContainer.innerHTML = tableHTML;
     } catch (error) {
         adminMemberListContainer.innerHTML = '<p>An error occurred while loading members.</p>';
         console.error('Failed to load members:', error);
+    }
+}
+
+async function loadBorrowings() {
+    try {
+        const response = await fetch('/api/borrowings');
+        const borrowings = await response.json();
+        let tableHTML = `<table><thead><tr><th>Member</th><th>Book</th><th>Issue Date</th><th>Due Date</th><th>Return Status</th></tr></thead><tbody>`;
+        borrowings.forEach(b => {
+            const returnStatus = b.returnDate
+                ? `Returned on ${b.returnDate}`
+                : `<button class="return-btn" onclick="handleReturnBook(${b.id})">Mark as Returned</button>`;
+            tableHTML += `
+                <tr>
+                    <td>${b.memberName}</td>
+                    <td>${b.bookTitle}</td>
+                    <td>${b.issueDate}</td>
+                    <td>${b.dueDate}</td>
+                    <td>${returnStatus}</td>
+                </tr>`;
+        });
+        tableHTML += '</tbody></table>';
+        borrowingListContainer.innerHTML = tableHTML;
+    } catch (error) {
+        borrowingListContainer.innerHTML = '<p>Error loading borrowing records.</p>';
+        console.error('Failed to load borrowings:', error);
+    }
+}
+
+async function populateIssueBookDropdowns() {
+    try {
+        const [membersRes, booksRes] = await Promise.all([fetch('/api/members'), fetch('/api/books')]);
+        const members = await membersRes.json();
+        const books = await booksRes.json();
+
+        const memberSelect = document.getElementById('issue-member-select');
+        const bookSelect = document.getElementById('issue-book-select');
+
+        memberSelect.length = 1;
+        bookSelect.length = 1;
+
+        members.forEach(m => memberSelect.add(new Option(`${m.name} (ID: ${m.id})`, m.id)));
+        books.forEach(b => bookSelect.add(new Option(`${b.title} (ID: ${b.id})`, b.id)));
+
+    } catch (error) {
+        console.error('Failed to populate dropdowns:', error);
     }
 }
 
@@ -234,6 +316,125 @@ async function deleteMember(id) {
         }
     } catch (error) {
         console.error('Error deleting member:', error);
+    }
+}
+
+async function handleIssueBook(event) {
+    event.preventDefault();
+    const memberId = document.getElementById('issue-member-select').value;
+    const bookId = document.getElementById('issue-book-select').value;
+    const issueDate = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD
+    const dueDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 14 days from now
+
+    const borrowingData = { memberId, bookId, issueDate, dueDate };
+
+    try {
+        const response = await fetch('/api/borrowings/issue', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(borrowingData)
+        });
+        if (response.ok) {
+            alert('Book issued successfully!');
+            issueBookForm.reset();
+            loadBorrowings();
+        } else {
+            alert('Failed to issue book.');
+        }
+    } catch (error) {
+        console.error('Error issuing book:', error);
+    }
+}
+
+async function handleReturnBook(borrowingId) {
+    if (!confirm('Are you sure you want to mark this book as returned?')) return;
+    try {
+        const response = await fetch(`/api/borrowings/${borrowingId}/return`, { method: 'PUT' });
+        if (response.ok) {
+            alert('Book returned successfully.');
+            loadBorrowings();
+        } else {
+            alert('Failed to return book.');
+        }
+    } catch (error) {
+        console.error('Error returning book:', error);
+    }
+}
+
+
+// --- EDIT MODAL FUNCTIONS ---
+
+async function openEditModal(type, id) {
+    try {
+        const response = await fetch(`/api/${type}s/${id}`); // e.g., /api/books/1
+        if (!response.ok) throw new Error('Failed to fetch item data.');
+        const data = await response.json();
+
+        editForm.dataset.type = type;
+        editForm.dataset.id = id;
+
+        let fieldsHtml = '';
+        if (type === 'book') {
+            modalTitle.innerText = 'Edit Book';
+            fieldsHtml = `
+                <input type="text" id="edit-book-title" value="${data.title}" placeholder="Title" required>
+                <input type="text" id="edit-book-publisher" value="${data.publisher || ''}" placeholder="Publisher">
+            `;
+        } else if (type === 'member') {
+            modalTitle.innerText = 'Edit Member';
+            fieldsHtml = `
+                <input type="text" id="edit-member-name" value="${data.name}" placeholder="Name" required>
+                <input type="text" id="edit-member-address" value="${data.address || ''}" placeholder="Address">
+                <input type="text" id="edit-member-telephone" value="${data.telephone || ''}" placeholder="Telephone">
+            `;
+        }
+
+        editFormFields.innerHTML = fieldsHtml;
+        editModal.classList.remove('hidden');
+
+    } catch (error) {
+        console.error(`Error opening edit modal for ${type} ${id}:`, error);
+        alert('Could not load item details for editing.');
+    }
+}
+
+async function handleUpdate(event) {
+    event.preventDefault();
+    const { type, id } = editForm.dataset;
+    let payload = {};
+
+    if (type === 'book') {
+        payload = {
+            title: document.getElementById('edit-book-title').value,
+            publisher: document.getElementById('edit-book-publisher').value
+        };
+    } else if (type === 'member') {
+        payload = {
+            name: document.getElementById('edit-member-name').value,
+            address: document.getElementById('edit-member-address').value,
+            telephone: document.getElementById('edit-member-telephone').value
+        };
+    }
+
+    try {
+        const response = await fetch(`/api/${type}s/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            alert(`${type.charAt(0).toUpperCase() + type.slice(1)} updated successfully!`);
+            editModal.classList.add('hidden');
+            if (type === 'book') {
+                loadAdminBooks();
+                loadBooks(); // Also refresh public list
+            } else {
+                loadAdminMembers();
+            }
+        } else {
+            alert(`Failed to update ${type}.`);
+        }
+    } catch (error) {
+        console.error(`Error updating ${type}:`, error);
     }
 }
 
