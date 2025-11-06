@@ -5,6 +5,7 @@ const userActionsDiv = document.getElementById('user-actions');
 const userViewSection = document.getElementById('user-view');
 const userInfoDiv = document.getElementById('user-info');
 const adminPanelSection = document.getElementById('admin-panel');
+const bookViewSection = document.getElementById('book-view');
 const bookListContainer = document.getElementById('book-list-container');
 const userManagementContainer = document.getElementById('user-management-container');
 const uploadForm = document.getElementById('upload-form');
@@ -21,12 +22,40 @@ const editForm = document.getElementById('edit-form');
 const editFormFields = document.getElementById('edit-form-fields');
 const closeModalButton = document.querySelector('.close-button');
 
+// --- GLOBAL API FETCH WRAPPER ---
+async function apiFetch(url, options) {
+    const response = await fetch(url, options);
+
+    if (response.status === 401) {
+        alert('Your session has expired. Please log in again.');
+        window.location.href = '/';
+        throw new Error('Unauthorized');
+    }
+
+    if (response.status === 403) {
+        showInsufficientPrivilegeView();
+        throw new Error('Forbidden');
+    }
+
+    return response;
+}
+
+function showInsufficientPrivilegeView() {
+    userViewSection.classList.add('hidden');
+    adminPanelSection.classList.add('hidden');
+    bookViewSection.classList.add('hidden');
+    insufficientPrivilegeView.classList.remove('hidden');
+}
+
+
 // --- CORE FUNCTIONS ---
 
 async function main() {
     await checkUserStatus();
     renderUI();
-    await loadBooks();
+    if (insufficientPrivilegeView.classList.contains('hidden')) {
+        await loadBooks();
+    }
 
     if (currentUser && currentUser.role === 'ADMIN') {
         addBookForm.addEventListener('submit', handleCreateBook);
@@ -45,14 +74,16 @@ async function main() {
 
 async function checkUserStatus() {
     try {
-        const response = await fetch('/api/users/me');
+        const response = await apiFetch('/api/users/me');
         if (response.ok) {
             currentUser = await response.json();
         } else {
             currentUser = null;
         }
     } catch (error) {
-        console.error('Failed to check user status:', error);
+        if (error.message !== 'Unauthorized' && error.message !== 'Forbidden') {
+            console.error('Failed to check user status:', error);
+        }
         currentUser = null;
     }
 }
@@ -109,7 +140,7 @@ async function loadBooks() {
 
 async function loadUsersForAdmin() {
     try {
-        const response = await fetch('/api/admin/users');
+        const response = await apiFetch('/api/admin/users');
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const users = await response.json();
         let tableHTML = `<table><thead><tr><th>Picture</th><th>Name</th><th>Email</th><th>Role</th><!--<th>Actions</th>--></tr></thead><tbody>`;
@@ -121,14 +152,16 @@ async function loadUsersForAdmin() {
         tableHTML += '</tbody></table>';
         userManagementContainer.innerHTML = tableHTML;
     } catch (error) {
-        userManagementContainer.innerHTML = '<p>An error occurred while loading users. Ensure you have ADMIN privileges.</p>';
-        console.error('Failed to load users:', error);
+        if (error.message !== 'Forbidden') {
+            userManagementContainer.innerHTML = '<p>An error occurred while loading users.</p>';
+            console.error('Failed to load users:', error);
+        }
     }
 }
 
 async function loadAdminBooks() {
     try {
-        const response = await fetch('/api/books');
+        const response = await apiFetch('/api/books');
         const books = await response.json();
         let tableHTML = `<table><thead><tr><th>ID</th><th>Title</th><th>Publisher</th><th>Actions</th></tr></thead><tbody>`;
         books.forEach(book => {
@@ -153,7 +186,7 @@ async function loadAdminBooks() {
 
 async function loadAdminMembers() {
     try {
-        const response = await fetch('/api/members');
+        const response = await apiFetch('/api/members');
         const members = await response.json();
         let tableHTML = `<table><thead><tr><th>ID</th><th>Name</th><th>Address</th><th>Telephone</th><th>Actions</th></tr></thead><tbody>`;
         members.forEach(member => {
@@ -179,7 +212,7 @@ async function loadAdminMembers() {
 
 async function loadBorrowings() {
     try {
-        const response = await fetch('/api/borrowings');
+        const response = await apiFetch('/api/borrowings');
         const borrowings = await response.json();
         let tableHTML = `<table><thead><tr><th>Member</th><th>Book</th><th>Issue Date</th><th>Due Date</th><th>Return Status</th></tr></thead><tbody>`;
         borrowings.forEach(b => {
@@ -205,7 +238,7 @@ async function loadBorrowings() {
 
 async function populateIssueBookDropdowns() {
     try {
-        const [membersRes, booksRes] = await Promise.all([fetch('/api/members'), fetch('/api/books')]);
+        const [membersRes, booksRes] = await Promise.all([apiFetch('/api/members'), apiFetch('/api/books')]);
         const members = await membersRes.json();
         const books = await booksRes.json();
 
@@ -228,7 +261,7 @@ async function populateIssueBookDropdowns() {
 async function changeUserRole(email, newRole) {
     if (!confirm(`Are you sure you want to change the role of ${email} to ${newRole}?`)) return;
     try {
-        const response = await fetch(`/api/admin/users/${email}/role`, {
+        const response = await apiFetch(`/api/admin/users/${email}/role`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: newRole })
         });
         if (response.ok) {
@@ -249,7 +282,7 @@ async function handleCreateBook(event) {
     const bookData = { title, publisher };
 
     try {
-        const response = await fetch('/api/books', {
+        const response = await apiFetch('/api/books', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bookData)
         });
         if (response.ok) {
@@ -273,7 +306,7 @@ async function handleCreateMember(event) {
     const memberData = { name, address, telephone };
 
     try {
-        const response = await fetch('/api/members', {
+        const response = await apiFetch('/api/members', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(memberData)
         });
         if (response.ok) {
@@ -291,7 +324,7 @@ async function handleCreateMember(event) {
 async function deleteBook(id) {
     if (!confirm(`Are you sure you want to delete book with ID ${id}?`)) return;
     try {
-        const response = await fetch(`/api/books/${id}`, { method: 'DELETE' });
+        const response = await apiFetch(`/api/books/${id}`, { method: 'DELETE' });
         if (response.ok) {
             alert('Book deleted successfully.');
             loadAdminBooks();
@@ -307,7 +340,7 @@ async function deleteBook(id) {
 async function deleteMember(id) {
     if (!confirm(`Are you sure you want to delete member with ID ${id}?`)) return;
     try {
-        const response = await fetch(`/api/members/${id}`, { method: 'DELETE' });
+        const response = await apiFetch(`/api/members/${id}`, { method: 'DELETE' });
         if (response.ok) {
             alert('Member deleted successfully.');
             loadAdminMembers(); // Refresh the list
@@ -329,7 +362,7 @@ async function handleIssueBook(event) {
     const borrowingData = { memberId, bookId, issueDate, dueDate };
 
     try {
-        const response = await fetch('/api/borrowings/issue', {
+        const response = await apiFetch('/api/borrowings/issue', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(borrowingData)
         });
         if (response.ok) {
@@ -347,7 +380,7 @@ async function handleIssueBook(event) {
 async function handleReturnBook(borrowingId) {
     if (!confirm('Are you sure you want to mark this book as returned?')) return;
     try {
-        const response = await fetch(`/api/borrowings/${borrowingId}/return`, { method: 'PUT' });
+        const response = await apiFetch(`/api/borrowings/${borrowingId}/return`, { method: 'PUT' });
         if (response.ok) {
             alert('Book returned successfully.');
             loadBorrowings();
@@ -364,7 +397,7 @@ async function handleReturnBook(borrowingId) {
 
 async function openEditModal(type, id) {
     try {
-        const response = await fetch(`/api/${type}s/${id}`); // e.g., /api/books/1
+        const response = await apiFetch(`/api/${type}s/${id}`); // e.g., /api/books/1
         if (!response.ok) throw new Error('Failed to fetch item data.');
         const data = await response.json();
 
@@ -415,7 +448,7 @@ async function handleUpdate(event) {
     }
 
     try {
-        const response = await fetch(`/api/${type}s/${id}`, {
+        const response = await apiFetch(`/api/${type}s/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -456,7 +489,7 @@ uploadForm.addEventListener('submit', async (event) => {
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
     try {
-        const response = await fetch('/api/users/profile/picture', { method: 'POST', body: formData });
+        const response = await apiFetch('/api/users/profile/picture', { method: 'POST', body: formData });
         if (response.ok) {
             alert('Profile picture uploaded successfully!');
             window.location.reload();
