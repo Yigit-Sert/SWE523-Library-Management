@@ -1,6 +1,8 @@
 package com.library.librarymanagement.service;
 
+import com.library.librarymanagement.model.Member;
 import com.library.librarymanagement.model.User;
+import com.library.librarymanagement.repository.MemberRepository;
 import com.library.librarymanagement.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +15,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -27,7 +30,11 @@ public class CustomOidcUserService extends OidcUserService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private MemberRepository memberRepository;
+
     @Override
+    @Transactional
     public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
         OidcUser oidcUser = super.loadUser(userRequest);
         Map<String, Object> attributes = oidcUser.getAttributes();
@@ -50,12 +57,19 @@ public class CustomOidcUserService extends OidcUserService {
             log.info("Found existing user: {}", email);
             return userOptional.get();
         } else {
-            log.info("Creating new user: {}", email);
+            log.info("Creating new user and member profile for: {}", email);
+
+            Member newMemberProfile = new Member();
+            newMemberProfile.setName((String) attributes.get("name"));
+            memberRepository.save(newMemberProfile);
+
             User newUser = new User();
             newUser.setEmail(email);
             newUser.setName((String) attributes.get("name"));
             newUser.setProfilePictureUrl((String) attributes.get("picture"));
-            newUser.setRole(User.Role.USER); // New users are always USER by default.
+            newUser.setRole(User.Role.MEMBER);
+            newUser.setMemberProfile(newMemberProfile);
+
             return userRepository.save(newUser);
         }
     }

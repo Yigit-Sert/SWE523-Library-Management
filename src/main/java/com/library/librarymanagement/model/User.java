@@ -25,8 +25,13 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "member_id", referencedColumnName = "id")
+    private Member memberProfile;
+
     public enum Role {
-        USER,
+        MEMBER,
+        PERSONNEL,
         ADMIN
     }
 }

@@ -28,7 +28,7 @@ public class AdminController {
             User updatedUser = userService.changeUserRole(email, newRole);
             return ResponseEntity.ok(updatedUser);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(null);
         }
     }
 }

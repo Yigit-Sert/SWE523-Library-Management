@@ -26,13 +26,29 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorize -> authorize
+                        // --- ADMIN-ONLY PERMISSIONS ---
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/books", "/api/members", "/api/borrowings/issue").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/books/**", "/api/members/**", "/api/borrowings/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/books/**", "/api/members/**", "/api/borrowings/**").hasRole("ADMIN")
+
+                        // --- SHARED PERMISSIONS for PERSONNEL and ADMIN ---
+                        .requestMatchers(
+                                "/api/members/**",          // Full CRUD for library member records.
+                                "/api/borrowings/**"        // Issuing and returning books.
+                        ).hasAnyRole("PERSONNEL", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/books/**").hasAnyRole("PERSONNEL", "ADMIN")   // Create books.
+                        .requestMatchers(HttpMethod.PUT, "/api/books/**").hasAnyRole("PERSONNEL", "ADMIN")    // Update books.
+                        .requestMatchers(HttpMethod.DELETE, "/api/books/**").hasAnyRole("PERSONNEL", "ADMIN") // Delete books.
+                        .requestMatchers(HttpMethod.GET, "/api/requests").hasAnyRole("PERSONNEL", "ADMIN")   // View ALL book requests.
+                        .requestMatchers(HttpMethod.PUT, "/api/requests/*/approve", "/api/requests/*/reject").hasAnyRole("PERSONNEL", "ADMIN") // Approve or reject requests.
+
+                        // --- MEMBER-ONLY PERMISSIONS ---
+                        .requestMatchers(HttpMethod.POST, "/api/requests").hasRole("MEMBER")                 // Create a new book request.
+                        .requestMatchers(HttpMethod.GET, "/api/requests/my-requests").hasRole("MEMBER")      // View their own requests.
+
+                        // --- PUBLIC PERMISSIONS ---
                         .requestMatchers(HttpMethod.GET, "/api/books/**", "/api/users/profile/picture/**").permitAll()
-                        .requestMatchers("/", "/index.html", "/style.css", "/app.js").permitAll()
-                        .requestMatchers("/api/users/**").authenticated()
+                        .requestMatchers("/", "/index.html", "/style.css", "/app.js", "/favicon.ico").permitAll()
+
+                        // --- CATCH-ALL ---
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 ->
