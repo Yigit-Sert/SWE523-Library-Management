@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Error</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        .error-code { font-size: 5em; color: #6c757d; }
+        .error-message { font-size: 1.5em; color: #343a40; }
+        a { color: #007bff; text-decoration: none; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+<div class="error-code" th:text="${statusCode}">500</div>
+<h1 class="error-message" th:text="${errorMessage}">An unexpected error occurred</h1>
+<p><a href="/">Click here to go to the Home Page</a></p>
+</body>
+</html>
