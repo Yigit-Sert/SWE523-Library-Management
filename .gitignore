@@ -8,6 +8,9 @@ ai_context/
 
 *.log
 
+.env
+.DS_Store
+
 ### STS ###
 .apt_generated
 .classpath
