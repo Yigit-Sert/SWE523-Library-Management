@@ -1,48 +1,128 @@
 version: '3.8'
 
 services:
-  app:
-    image: ${DOCKER_HUB_USERNAME}/library-management:latest
-    container_name: library-app
-    depends_on:
-      - db
-      - redis
-    ports:
-      - "8080:8080"
-    environment:
-      - DB_HOST=${DB_HOST}
-      - DB_USERNAME=${DB_USERNAME}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - REDIS_HOST=${REDIS_HOST}
-      - UPLOAD_DIR=/app/uploads
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI={baseUrl}/login/oauth2/code/{registrationId}
-    volumes:
-      - app_uploads:/app/uploads
-    restart: on-failure
-
-  db:
+  # --- Databases ---
+  book-db:
     image: mysql:8.0
-    container_name: library-db
+    container_name: book-db
     environment:
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-    ports:
-      - "3306:3306"
+      MYSQL_DATABASE: book_db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - db_data:/var/lib/mysql
-    restart: always
+      - book_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
+  member-db:
+    image: mysql:8.0
+    container_name: member-db
+    environment:
+      MYSQL_DATABASE: member_db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - member_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  borrowing-db:
+    image: mysql:8.0
+    container_name: borrowing-db
+    environment:
+      MYSQL_DATABASE: borrowing_db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - borrowing_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # --- Cache ---
   redis:
-    image: redis:alpine
+    image: redis:latest
     container_name: library-redis
     ports:
       - "6379:6379"
-    restart: always
+
+  # --- Microservices ---
+  book-service:
+    build: ./book-service
+    container_name: book-service
+    depends_on:
+      book-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_HOST=book-db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+
+  member-service:
+    build: ./member-service
+    container_name: member-service
+    depends_on:
+      member-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8082:8082"
+    environment:
+      - DB_HOST=member-db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI=http://localhost/login/oauth2/code/google
+
+  borrowing-service:
+    build: ./borrowing-service
+    container_name: borrowing-service
+    depends_on:
+      borrowing-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    environment:
+      - DB_HOST=borrowing-db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - SERVICES_BOOK_URL=${SERVICES_BOOK_URL:-http://book-service:8081/api/books}
+      - SERVICES_MEMBER_URL=${SERVICES_MEMBER_URL:-http://member-service:8082/api/members}
+
+  # --- API Gateway ---
+  nginx:
+    image: nginx:latest
+    container_name: library-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/html:/usr/share/nginx/html
+    depends_on:
+      - book-service
+      - member-service
+      - borrowing-service
 
 volumes:
-  db_data:
-  app_uploads:
+  book_db_data:
+  member_db_data:
+  borrowing_db_data:
