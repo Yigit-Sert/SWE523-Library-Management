@@ -567,5 +567,5 @@ async function handleUpdate(event) {
 }
 
 function logout() {
-    fetch('/logout', { method: 'POST' }).then(() => window.location.reload());
+    fetch('/logout', { method: 'POST' }).then(() => window.location.href = '/');
 }
