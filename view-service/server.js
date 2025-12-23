@@ -7,91 +7,83 @@ const port = 8080;
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-const getConfig = (req) => {
-    return {
-        headers: {
-            'Cookie': req.headers.cookie || '',
-            'Content-Type': 'application/json'
-        }
-    };
-};
-
-// Book Service Proxy (App3 - 8083)
-app.use('/api/books', async (req, res) => {
+// --- Gateway Proxy Fonksiyonu ---
+async function forwardRequest(req, res, targetBaseUrl) {
     try {
-        const url = `http://book-service:8083/api/books${req.url === '/' ? '' : req.url}`;
-        const config = getConfig(req);
+        const url = `${targetBaseUrl}${req.originalUrl}`;
 
-        const response = await axios({
+        // Browser'dan gelen Host başlığını (localhost:8080) koru
+        // Bu, Spring Boot'un doğru redirect oluşturmasına yardımcı olur
+        const headers = { ...req.headers };
+
+        const config = {
             method: req.method,
             url: url,
-            data: req.body,
-            ...config
+            headers: headers,
+            data: req.method === 'GET' ? undefined : req.body,
+            maxRedirects: 0, // Redirectleri biz yöneteceğiz
+            validateStatus: (status) => status < 500,
+            responseType: 'arraybuffer'
+        };
+
+        // Axios'un kendi host atamasını engelle
+        delete config.headers['host'];
+
+        const response = await axios(config);
+
+        // --- KRİTİK DÜZELTME: Location Header Rewrite ---
+        // Backend "member-service" adresine git derse, onu "localhost" yapıyoruz.
+        Object.keys(response.headers).forEach(key => {
+            if (key.toLowerCase() === 'location') {
+                let location = response.headers[key];
+                // İç ağ adreslerini dış ağ (localhost) adresiyle değiştir
+                location = location.replace('http://member-service:8081', 'http://localhost:8080');
+                location = location.replace('http://borrowing-service:8082', 'http://localhost:8080');
+                location = location.replace('http://book-service:8083', 'http://localhost:8080');
+                res.setHeader(key, location);
+            } else {
+                res.setHeader(key, response.headers[key]);
+            }
         });
-        res.status(response.status).json(response.data);
+
+        res.status(response.status).send(response.data);
+
     } catch (error) {
-        res.status(error.response ? error.response.status : 500).json(error.response ? error.response.data : error.message);
+        console.error(`Proxy Error [${req.originalUrl}]:`, error.message);
+        if (error.response) {
+            res.status(error.response.status).send(error.response.data);
+        } else {
+            res.status(500).send("Gateway Error: " + error.message);
+        }
     }
-});
+}
 
-// Member Service Proxy (App1 - 8081)
-app.use('/api/members', async (req, res) => {
-    try {
-        const url = `http://member-service:8081/api/members${req.url === '/' ? '' : req.url}`;
-        const config = getConfig(req);
+// --- Yönlendirme Kuralları ---
 
-        const response = await axios({ method: req.method, url: url, data: req.body, ...config });
-        res.status(response.status).json(response.data);
-    } catch (error) { res.status(error.response ? error.response.status : 500).json(error.message); }
-});
+const MEMBER_SERVICE = 'http://member-service:8081';
+const BORROWING_SERVICE = 'http://borrowing-service:8082';
+const BOOK_SERVICE = 'http://book-service:8083';
 
-// User Endpoints Proxy (App1 - 8081)
-app.use('/api/users', async (req, res) => {
-    try {
-        const url = `http://member-service:8081/api/users${req.url === '/' ? '' : req.url}`;
-        const config = getConfig(req);
+// Auth
+app.use('/oauth2', (req, res) => forwardRequest(req, res, MEMBER_SERVICE));
+app.use('/login', (req, res) => forwardRequest(req, res, MEMBER_SERVICE));
+app.use('/logout', (req, res) => forwardRequest(req, res, MEMBER_SERVICE));
 
-        const response = await axios({ method: req.method, url: url, data: req.body, ...config });
-        res.status(response.status).json(response.data);
-    } catch (error) { res.status(error.response ? error.response.status : 500).json(error.message); }
-});
+// API
+app.use('/api/members', (req, res) => forwardRequest(req, res, MEMBER_SERVICE));
+app.use('/api/users', (req, res) => forwardRequest(req, res, MEMBER_SERVICE));
+app.use('/api/admin', (req, res) => forwardRequest(req, res, MEMBER_SERVICE));
 
-// Admin Endpoints Proxy (App1 - 8081)
-app.use('/api/admin', async (req, res) => {
-    try {
-        const url = `http://member-service:8081/api/admin${req.url === '/' ? '' : req.url}`;
-        const config = getConfig(req);
+app.use('/api/borrowings', (req, res) => forwardRequest(req, res, BORROWING_SERVICE));
+app.use('/api/requests', (req, res) => forwardRequest(req, res, BORROWING_SERVICE));
 
-        const response = await axios({ method: req.method, url: url, data: req.body, ...config });
-        res.status(response.status).json(response.data);
-    } catch (error) { res.status(error.response ? error.response.status : 500).json(error.message); }
-});
+app.use('/api/books', (req, res) => forwardRequest(req, res, BOOK_SERVICE));
 
-// Borrowing Service Proxy (App2 - 8082)
-app.use('/api/borrowings', async (req, res) => {
-    try {
-        const url = `http://borrowing-service:8082/api/borrowings${req.url === '/' ? '' : req.url}`;
-        const config = getConfig(req);
-
-        const response = await axios({ method: req.method, url: url, data: req.body, ...config });
-        res.status(response.status).json(response.data);
-    } catch (error) { res.status(error.response ? error.response.status : 500).json(error.message); }
-});
-
-app.use('/api/requests', async (req, res) => {
-    try {
-        const url = `http://borrowing-service:8082/api/requests${req.url === '/' ? '' : req.url}`;
-        const config = getConfig(req);
-
-        const response = await axios({ method: req.method, url: url, data: req.body, ...config });
-        res.status(response.status).json(response.data);
-    } catch (error) { res.status(error.response ? error.response.status : 500).json(error.message); }
-});
-
+// Frontend
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(port, () => {
-    console.log(`ViewAPI Node server running on port ${port}`);
+    console.log(`Gateway Node server running on port ${port}`);
 });

@@ -42,3 +42,4 @@ build/
 /src/main/resources/application.properties
 /ai_context/project_context.txt
 /ai_context/project_context_extractor.py
+k8s/

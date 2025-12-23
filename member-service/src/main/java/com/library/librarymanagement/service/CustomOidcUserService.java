@@ -69,7 +69,14 @@ public class CustomOidcUserService extends OidcUserService {
             newUser.setEmail(email);
             newUser.setName((String) attributes.get("name"));
             newUser.setProfilePictureUrl((String) attributes.get("picture"));
-            newUser.setRole(User.Role.MEMBER);
+
+            if (userRepository.count() == 0) {
+                newUser.setRole(User.Role.ADMIN);
+                log.warn("System initialized. First user '{}' is assigned as ADMIN.", email);
+            } else {
+                newUser.setRole(User.Role.MEMBER);
+            }
+
             newUser.setMemberProfile(newMemberProfile);
 
             return userRepository.save(newUser);
