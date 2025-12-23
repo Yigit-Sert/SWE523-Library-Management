@@ -41,28 +41,20 @@ public class BorrowerController {
     private BorrowerDto convertToDto(Borrower borrower) {
         BorrowerDto borrowerDto = modelMapper.map(borrower, BorrowerDto.class);
 
-        // --- DÜZELTME BURADA YAPILDI ---
-        // Eski: borrowerDto.setMemberId(borrower.getMember().getId());
-        // Yeni: borrowerDto.setMemberId(borrower.getMemberId());
-
         borrowerDto.setMemberId(borrower.getMemberId());
         borrowerDto.setBookId(borrower.getBookId());
 
-        // İsimleri almak için diğer servislere soruyoruz
         try {
-            // Member Service'den üye ismini çek
             if (borrower.getMemberId() != null) {
                 MemberDto member = restTemplate.getForObject(memberServiceUrl + "/" + borrower.getMemberId(), MemberDto.class);
                 borrowerDto.setMemberName(member != null ? member.getName() : "Unknown Member");
             }
 
-            // Book Service'den kitap ismini çek
             if (borrower.getBookId() != null) {
                 BookDto book = restTemplate.getForObject(bookServiceUrl + "/" + borrower.getBookId(), BookDto.class);
                 borrowerDto.setBookTitle(book != null ? book.getTitle() : "Unknown Book");
             }
         } catch (Exception e) {
-            // Servis kapalıysa veya hata varsa
             borrowerDto.setMemberName("Service Unavailable");
             borrowerDto.setBookTitle("Service Unavailable");
             System.err.println("Microservice fetch error: " + e.getMessage());

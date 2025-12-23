@@ -1,22 +1,8 @@
 version: '3.8'
 
 services:
-  # --- Databases ---
-  book-db:
-    image: mysql:8.0
-    container_name: book-db
-    environment:
-      MYSQL_DATABASE: book_db
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - book_db_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
 
+  # DB1 -> Member Service (Customer)
   member-db:
     image: mysql:8.0
     container_name: member-db
@@ -27,11 +13,14 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - member_db_data:/var/lib/mysql
+    ports:
+      - "33061:3306"
     healthcheck:
       test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
       timeout: 20s
       retries: 10
 
+  # DB2 -> Borrowing Service (Reservation)
   borrowing-db:
     image: mysql:8.0
     container_name: borrowing-db
@@ -42,6 +31,26 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - borrowing_db_data:/var/lib/mysql
+    ports:
+      - "33062:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # DB3 -> Book Service (Car/Inventory)
+  book-db:
+    image: mysql:8.0
+    container_name: book-db
+    environment:
+      MYSQL_DATABASE: book_db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - book_db_data:/var/lib/mysql
+    ports:
+      - "33063:3306"
     healthcheck:
       test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
       timeout: 20s
@@ -54,27 +63,12 @@ services:
     ports:
       - "6379:6379"
 
-  # --- Microservices ---
-  book-service:
-    build: ./book-service
-    image: yigitsert/library-book-service:latest
-    container_name: book-service
-    depends_on:
-      book-db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    ports:
-      - "8081:8081"
-    environment:
-      - DB_HOST=book-db
-      - DB_USERNAME=${DB_USERNAME}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - REDIS_HOST=redis
+  # --- Microservices (Figure 1: App1, App2, App3) ---
 
+  # App1 (Customer) -> Member Service @ 8081
   member-service:
     build: ./member-service
-    image: yigitsert/library-member-service:latest
+    image: ${DOCKER_HUB_USERNAME}/library-member-service:latest
     container_name: member-service
     depends_on:
       member-db:
@@ -82,19 +76,21 @@ services:
       redis:
         condition: service_started
     ports:
-      - "8082:8082"
+      - "8081:8081"
     environment:
       - DB_HOST=member-db
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
+      - APP_BASE_URL=http://localhost
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI=${APP_BASE_URL:-http://localhost}/login/oauth2/code/google
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI=http://localhost/login/oauth2/code/google
 
+  # App2 (Reservation) -> Borrowing Service @ 8082
   borrowing-service:
     build: ./borrowing-service
-    image: yigitsert/library-borrowing-service:latest
+    image: ${DOCKER_HUB_USERNAME}/library-borrowing-service:latest
     container_name: borrowing-service
     depends_on:
       borrowing-db:
@@ -102,26 +98,60 @@ services:
       redis:
         condition: service_started
     ports:
-      - "8083:8083"
+      - "8082:8082"
     environment:
       - DB_HOST=borrowing-db
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
-      - SERVICES_BOOK_URL=${SERVICES_BOOK_URL:-http://book-service:8081/api/books}
-      - SERVICES_MEMBER_URL=${SERVICES_MEMBER_URL:-http://member-service:8082/api/members}
+      - SERVICES_MEMBER_URL=http://member-service:8081/api/members
+      - SERVICES_BOOK_URL=http://book-service:8083/api/books
 
-  # --- API Gateway ---
+  # App3 (Car/Inventory) -> Book Service @ 8083
+  book-service:
+    build: ./book-service
+    image: ${DOCKER_HUB_USERNAME}/library-book-service:latest
+    container_name: book-service
+    depends_on:
+      book-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    environment:
+      - DB_HOST=book-db
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+
+  # --- View Layer ---
+
+  # ViewAPI (Node App) @ 8080
+  view-service:
+    build: ./view-service
+    image: ${DOCKER_HUB_USERNAME}/library-view-service:latest
+    container_name: library-view-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - member-service
+      - borrowing-service
+      - book-service
+    environment:
+      - NODE_ENV=production
+
+  # --- Gateway ---
+
+  # Nginx @ 80
   nginx:
     build: ./nginx
-    image: yigitsert/library-nginx:latest
+    image: ${DOCKER_HUB_USERNAME}/library-nginx:latest
     container_name: library-nginx
     ports:
       - "80:80"
     depends_on:
-      - book-service
-      - member-service
-      - borrowing-service
+      - view-service
 
 volumes:
   book_db_data:

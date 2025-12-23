@@ -7,9 +7,9 @@ import java.time.LocalDate;
 public class BookRequestDto {
     private Long id;
     private Long userId;
-    private String userName;    // Kullanıcı adını buraya koyacağız
+    private String userName;
     private Long bookId;
-    private String bookTitle;   // Kitap başlığını buraya koyacağız
+    private String bookTitle;
     private LocalDate requestDate;
     private String status;
 }

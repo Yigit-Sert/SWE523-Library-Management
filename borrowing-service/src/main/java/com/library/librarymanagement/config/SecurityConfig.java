@@ -13,8 +13,6 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Borrowing servisindeki tüm endpointleri erişilebilir yap
-                        // (Auth kontrolü Member Service ve Gateway seviyesinde yönetiliyor varsayıyoruz)
                         .anyRequest().authenticated()
                 );
         return http.build();

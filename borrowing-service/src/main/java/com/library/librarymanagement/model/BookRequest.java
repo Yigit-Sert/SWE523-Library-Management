@@ -15,13 +15,9 @@ public class BookRequest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ESKİ: private User requestingUser;
-    // YENİ: Kullanıcı ID'si. (User entity'si Member servisinde kaldı)
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    // ESKİ: private Book book;
-    // YENİ: Kitap ID'si.
     @Column(name = "book_id", nullable = false)
     private Long bookId;
 
