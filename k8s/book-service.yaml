@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: book-service
+spec:
+  ports:
+    - port: 8083
+      targetPort: 8083
+  selector:
+    app: book-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: book-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: book-service
+  template:
+    metadata:
+      labels:
+        app: book-service
+    spec:
+      containers:
+        - name: book-service
+          image: book-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8083
+          env:
+            - name: SPRING_DATA_REDIS_PORT
+              value: "6379"
+            - name: DB_HOST
+              value: "book-db"
+            - name: DB_USERNAME
+              value: "library_user"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: library-secrets
+                  key: mysql-user-password
+            - name: REDIS_HOST
+              value: "redis"

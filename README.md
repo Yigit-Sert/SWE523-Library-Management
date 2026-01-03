@@ -1,115 +1,146 @@
+# 📖 Library Management System (Microservices)
 
- 📖 Library Management System
+This project is a distributed web application developed to manage the core operations of a library. It allows users to login via Google OAuth2, request books, and allows administrators/personnel to manage members and inventory.
 
- This project is a web application developed to manage the core operations of a library, including members, books, and borrowing records. The project is built using Java and the Spring Boot framework.
+The system is built using a **Microservices Architecture** with **Java (Spring Boot)**, **Node.js**, and **MySQL**, orchestrated via **Docker** and **Kubernetes**.
 
- ![Java](https://img.shields.io/badge/Java-17-blue)![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.6-brightgreen)![Maven](https://img.shields.io/badge/Maven-4.0.0-red)![Database](https://img.shields.io/badge/Database-MySQL-orange)
+![Java](https://img.shields.io/badge/Java-17-blue)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.6-brightgreen)
+![Node.js](https://img.shields.io/badge/Node.js-18-green)
+![Docker](https://img.shields.io/badge/Docker-Enabled-blue)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-blue)
 
- ## ✨ Features
+## 🏗️ Architecture
 
- -   **Member Management:** Add, view, edit, and delete library members.
- -   **Book Management:** Add, view, edit, and delete books from the library's collection.
- -   **Borrowing System:**
-     -   Issue books to members with a specified due date.
-     -   Track the status of borrowed books (On Loan / Returned).
-     -   Record the return of books.
- -   **Web Interface:** An intuitive and clean user interface built with Thymeleaf and Bootstrap for easy interaction.
+The system consists of the following microservices:
 
- ## 🛠️ Technologies Used
+1.  **Member Service (Port 8081):** Manages user profiles, Google OAuth2 authentication, and roles.
+2.  **Book Service (Port 8083):** Manages the book inventory.
+3.  **Borrowing Service (Port 8082):** Handles borrowing logic, issue dates, and return records.
+4.  **View Service (Port 8080):** A Node.js/Express Gateway that serves the frontend and proxies API requests to backend services.
 
- ### Backend
+## ✨ Features
 
- -   **Java 17**
- -   **Spring Boot 3.5.6**
-     -   **Spring Web:** For the web layer and RESTful controllers.
-     -   **Spring Data JPA:** For database interaction and repository management.
-     -   **Thymeleaf:** Server-side Java template engine for the view layer.
- -   **MySQL:** Relational database for data persistence.
- -   **Hibernate:** JPA implementation for ORM (Object-Relational Mapping).
- -   **Lombok:** To reduce boilerplate code (getters, setters, constructors).
- -   **Maven:** For project build and dependency management.
+-   **Authentication:** Secure login via Google OAuth2.
+-   **Role-Based Access:** Distinct capabilities for Members, Personnel, and Admins.
+-   **Member Management:** Administer library members and personnel.
+-   **Book Management:** Add, view, edit, and delete books (Admin/Personnel).
+-   **Borrowing System:**
+    -   Request books (Members).
+    -   Approve/Reject requests (Personnel).
+    -   Issue and Return tracking.
+-   **Distributed Caching:** Redis is used for session management and caching.
 
- ### Frontend
+## 🛠️ Technologies Used
 
- -   **HTML5**
- -   **CSS3** (with **Bootstrap 5** for styling and layout)
- -   **Thymeleaf:** For integrating backend data into HTML templates.
+### Backend
+-   **Java 17** & **Spring Boot 3.5.6**
+-   **Spring Security (OAuth2 Client)**
+-   **Spring Data JPA** & **MySQL** (Per-service databases)
+-   **Redis:** For distributed session storage and caching.
+-   **Maven:** Build tool.
 
- ---
+### Frontend / Gateway
+-   **Node.js & Express:** Serves static content and acts as an API Gateway.
+-   **HTML5, CSS3, Vanilla JavaScript:** Frontend UI.
+-   **Nginx:** Reverse proxy (for Docker Compose setup).
 
- ## 🚀 Setup and Installation
+---
 
- To get this project up and running on your local machine, follow these steps:
+## 🚀 Setup and Installation (Docker Compose)
 
- **Prerequisites:**
+The easiest way to run the application locally is using Docker Compose.
 
- -   JDK 17 or later.
- -   Apache Maven.
- -   A running MySQL server instance.
+**Prerequisites:**
+-   Docker & Docker Compose installed.
+-   Google Cloud Console Project (for OAuth2 Credentials).
 
- **Steps:**
+**Steps:**
 
- 1.  **Clone the repository:**
-     ```bash
-     git clone https://github.com/your-username/library-management.git
-     cd library-management
-     ```
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/Yigit-Sert/SWE523-Library-Management.git
+    cd library-management
+    ```
 
- 2.  **Create the MySQL Database:**
-     -   Log in to your MySQL server.
-     -   Create a new database for the project.
-         ```sql
-         CREATE DATABASE library_db;
-         ```
+2.  **Configure Environment Variables:**
+    Create a `.env` file in the project root. You can use the example provided:
+    ```bash
+    cp .env.example .env
+    ```
+    **Important:** Open `.env` and update `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` with your own credentials.
 
- 3.  **Configure the Application:**
-     -   Navigate to the `src/main/resources/` directory.
-     -   Create or edit the `application.properties` file.
-     -   Update the file with your MySQL database URL, username, and password. See the **Configuration** section below.
+3.  **Build and Run:**
+    ```bash
+    docker compose up --build
+    ```
+    *This will build the Java JARs, the Node image, setup MySQL databases, and start Redis.*
 
- 4.  **Build and Run the Application:**
-     -   Use the Maven wrapper to build and run the project.
-     -   **On Linux/macOS:**
-         ```bash
-         ./mvnw spring-boot:run
-         ```
-     -   **On Windows:**
-         ```bash
-         mvnw.cmd spring-boot:run
-         ```
-     The application will start by default at `http://localhost:8080`.
+4.  **Access the Application:**
+    Open your browser and navigate to: `http://localhost:8080`
 
- ## ⚙️ Configuration
+---
 
- The main configuration file is located at `src/main/resources/application.properties`. It is highly recommended to use **environment variables** for sensitive data instead of hardcoding them.
+## ☸️ Kubernetes Deployment
 
- **Example `application.properties` (with Environment Variables):**
+To deploy this application on a Kubernetes cluster (e.g., Minikube, Docker Desktop K8s), follow these steps:
 
- ```properties
- # --- Database Configuration ---
- spring.datasource.url=${SPRING_DATASOURCE_URL}
- spring.datasource.username=${SPRING_DATASOURCE_USERNAME}
- spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
- spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+1.  **Create Secrets:**
+    The project uses a `secrets.yaml` file to manage sensitive data. A template is provided in `k8s/secrets.example.yaml`.
 
- # --- JPA/Hibernate Configuration ---
- # 'update' automatically updates the schema. Use 'validate' or 'none' in production.
- spring.jpa.hibernate.ddl-auto=update
- spring.jpa.show-sql=true
- spring.jpa.properties.hibernate.format_sql=true
- ```
+    Copy the example file:
+    ```bash
+    cp k8s/secrets.example.yaml k8s/secrets.yaml
+    ```
+    **Edit `k8s/secrets.yaml`** and insert your Base64 encoded (or plain string, depending on your setup/editor) MySQL passwords and Google OAuth keys.
 
- **Set the following environment variables on your system:**
+2.  **Apply Configuration:**
+    Apply the secrets and database deployments first:
+    ```bash
+    kubectl apply -f k8s/secrets.yaml
+    kubectl apply -f k8s/redis.yaml
+    kubectl apply -f k8s/member-db.yaml
+    kubectl apply -f k8s/book-db.yaml
+    kubectl apply -f k8s/borrowing-db.yaml
+    ```
 
- -   `SPRING_DATASOURCE_URL`: `jdbc:mysql://localhost:3306/library_db`
- -   `SPRING_DATASOURCE_USERNAME`: `your-mysql-username`
- -   `SPRING_DATASOURCE_PASSWORD`: `your-mysql-password`
+3.  **Deploy Microservices:**
+    Wait for the databases to be healthy, then deploy the services:
+    ```bash
+    kubectl apply -f k8s/member-service.yaml
+    kubectl apply -f k8s/book-service.yaml
+    kubectl apply -f k8s/borrowing-service.yaml
+    ```
 
- ## 💻 Usage
+4.  **Deploy View Layer:**
+    Finally, deploy the frontend/gateway service:
+    ```bash
+    kubectl apply -f k8s/view-service.yaml
+    ```
 
- Once the application is running, open your web browser and navigate to `http://localhost:8080`.
+5.  **Access the Application:**
+    The `view-service` is exposed as a LoadBalancer.
+    -   **Docker Desktop / Local K8s:** Access via `http://localhost:8080`.
+    -   **Minikube:** Run `minikube service view-service` to get the URL.
 
- -   **Home Page (`/`):** A welcome screen with navigation links.
- -   **Members Page (`/members`):** View, add, edit, and delete library members.
- -   **Books Page (`/books`):** View, add, edit, and delete books.
- -   **Borrowings Page (`/borrowings`):** View all borrowing records, issue a new book, or mark a book as returned.
+---
+
+## ⚙️ Configuration Details
+
+If you wish to run services manually (without Docker), you must configure the `application.properties` in each service's `src/main/resources` folder or pass Environment Variables.
+
+**Key Environment Variables:**
+
+| Variable | Description |
+| :--- | :--- |
+| `DB_HOST` | Hostname of the MySQL server (e.g., `localhost` or `member-db`) |
+| `DB_USERNAME` | Database username |
+| `DB_PASSWORD` | Database password |
+| `REDIS_HOST` | Hostname of the Redis server |
+| `GOOGLE_CLIENT_ID` | OAuth2 Client ID |
+| `GOOGLE_CLIENT_SECRET` | OAuth2 Client Secret |
+
+**Databases:**
+-   `member-service` uses `member_db`
+-   `book-service` uses `book_db`
+-   `borrowing-service` uses `borrowing_db`

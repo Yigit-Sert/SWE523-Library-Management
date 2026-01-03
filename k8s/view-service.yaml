@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: view-service
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: view-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: view-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: view-service
+  template:
+    metadata:
+      labels:
+        app: view-service
+    spec:
+      containers:
+        - name: view-service
+          image: view-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: NODE_ENV
+              value: "production"

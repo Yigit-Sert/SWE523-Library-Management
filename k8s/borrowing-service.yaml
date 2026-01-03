@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: borrowing-service
+spec:
+  ports:
+    - port: 8082
+      targetPort: 8082
+  selector:
+    app: borrowing-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: borrowing-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: borrowing-service
+  template:
+    metadata:
+      labels:
+        app: borrowing-service
+    spec:
+      containers:
+        - name: borrowing-service
+          image: borrowing-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8082
+          env:
+            - name: SPRING_DATA_REDIS_PORT
+              value: "6379"
+            - name: DB_HOST
+              value: "borrowing-db"
+            - name: DB_USERNAME
+              value: "library_user"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: library-secrets
+                  key: mysql-user-password
+            - name: REDIS_HOST
+              value: "redis"
+            - name: SERVICES_MEMBER_URL
+              value: "http://member-service:8081/api/members"
+            - name: SERVICES_BOOK_URL
+              value: "http://book-service:8083/api/books"

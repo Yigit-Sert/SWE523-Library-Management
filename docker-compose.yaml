@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
 
-  # DB1 -> Member Service (Customer)
+  # DB1 -> Member Service
   member-db:
     image: mysql:8.0
     container_name: member-db
@@ -20,7 +20,7 @@ services:
       timeout: 20s
       retries: 10
 
-  # DB2 -> Borrowing Service (Reservation)
+  # DB2 -> Borrowing Service
   borrowing-db:
     image: mysql:8.0
     container_name: borrowing-db
@@ -38,7 +38,7 @@ services:
       timeout: 20s
       retries: 10
 
-  # DB3 -> Book Service (Car/Inventory)
+  # DB3 -> Book Service
   book-db:
     image: mysql:8.0
     container_name: book-db
@@ -63,9 +63,9 @@ services:
     ports:
       - "6379:6379"
 
-  # --- Microservices (Figure 1: App1, App2, App3) ---
+  # --- Microservices ---
 
-  # App1 (Customer) -> Member Service @ 8081
+  # App1 -> Member Service @ 8081
   member-service:
     build: ./member-service
     image: ${DOCKER_HUB_USERNAME}/library-member-service:latest
@@ -87,7 +87,7 @@ services:
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI=http://localhost/login/oauth2/code/google
 
-  # App2 (Reservation) -> Borrowing Service @ 8082
+  # App2 -> Borrowing Service @ 8082
   borrowing-service:
     build: ./borrowing-service
     image: ${DOCKER_HUB_USERNAME}/library-borrowing-service:latest
@@ -107,7 +107,7 @@ services:
       - SERVICES_MEMBER_URL=http://member-service:8081/api/members
       - SERVICES_BOOK_URL=http://book-service:8083/api/books
 
-  # App3 (Car/Inventory) -> Book Service @ 8083
+  # App3 -> Book Service @ 8083
   book-service:
     build: ./book-service
     image: ${DOCKER_HUB_USERNAME}/library-book-service:latest

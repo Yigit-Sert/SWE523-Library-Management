@@ -7,13 +7,10 @@ const port = 8080;
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// --- Gateway Proxy Fonksiyonu ---
 async function forwardRequest(req, res, targetBaseUrl) {
     try {
         const url = `${targetBaseUrl}${req.originalUrl}`;
 
-        // Browser'dan gelen Host başlığını (localhost:8080) koru
-        // Bu, Spring Boot'un doğru redirect oluşturmasına yardımcı olur
         const headers = { ...req.headers };
 
         const config = {
@@ -21,22 +18,18 @@ async function forwardRequest(req, res, targetBaseUrl) {
             url: url,
             headers: headers,
             data: req.method === 'GET' ? undefined : req.body,
-            maxRedirects: 0, // Redirectleri biz yöneteceğiz
+            maxRedirects: 0,
             validateStatus: (status) => status < 500,
             responseType: 'arraybuffer'
         };
 
-        // Axios'un kendi host atamasını engelle
         delete config.headers['host'];
 
         const response = await axios(config);
 
-        // --- KRİTİK DÜZELTME: Location Header Rewrite ---
-        // Backend "member-service" adresine git derse, onu "localhost" yapıyoruz.
         Object.keys(response.headers).forEach(key => {
             if (key.toLowerCase() === 'location') {
                 let location = response.headers[key];
-                // İç ağ adreslerini dış ağ (localhost) adresiyle değiştir
                 location = location.replace('http://member-service:8081', 'http://localhost:8080');
                 location = location.replace('http://borrowing-service:8082', 'http://localhost:8080');
                 location = location.replace('http://book-service:8083', 'http://localhost:8080');
@@ -57,8 +50,6 @@ async function forwardRequest(req, res, targetBaseUrl) {
         }
     }
 }
-
-// --- Yönlendirme Kuralları ---
 
 const MEMBER_SERVICE = 'http://member-service:8081';
 const BORROWING_SERVICE = 'http://borrowing-service:8082';

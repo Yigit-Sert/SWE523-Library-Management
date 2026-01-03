@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: book-db
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: book-db
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: book-db
+spec:
+  selector:
+    matchLabels:
+      app: book-db
+  template:
+    metadata:
+      labels:
+        app: book-db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          imagePullPolicy: Never
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: library-secrets
+                  key: mysql-root-password
+            - name: MYSQL_DATABASE
+              value: "book_db"
+            - name: MYSQL_USER
+              value: "library_user"
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: library-secrets
+                  key: mysql-user-password
+          ports:
+            - containerPort: 3306
